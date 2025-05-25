@@ -1,0 +1,29 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: #eee;
+  text-align: center;
+}
+
+nav a {
+  color: #0ff;
+  margin: 0 1em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1em;
+  padding: 1em;
+}
+
+.card {
+  background: #222;
+  padding: 1em;
+  border-radius: 8px;
+}
+
+.card img {
+  width: 100%;
+  border-radius: 4px;
+}

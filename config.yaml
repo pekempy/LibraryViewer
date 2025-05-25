@@ -1,0 +1,11 @@
+jellyfin:
+  url: ""
+  api_key: ""
+  user_id: ""
+
+plex:
+  url: ""
+  token: ""
+  libraries:
+    - "Movies"
+    - "TV Shows"
