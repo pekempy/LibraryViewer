@@ -3,6 +3,7 @@ import requests
 import yaml
 import shutil
 from jinja2 import Environment, FileSystemLoader
+from dotenv import load_dotenv
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -13,8 +14,15 @@ POSTER_DIR = "output/posters"
 
 
 def load_config():
+    load_dotenv()
     with open("config.yaml") as f:
-        return yaml.safe_load(f)
+        config = yaml.safe_load(f)
+
+    # Override sensitive values from .env
+    config["jellyfin"]["api_key"] = os.getenv("JELLYFIN_API_KEY", config["jellyfin"].get("api_key"))
+    config["jellyfin"]["user_id"] = os.getenv("JELLYFIN_USER_ID", config["jellyfin"].get("user_id"))
+    config["plex"]["token"] = os.getenv("PLEX_TOKEN", config["plex"].get("token"))
+    return config
 
 
 def fetch_jellyfin_items(config):
