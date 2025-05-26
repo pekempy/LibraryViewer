@@ -18,7 +18,7 @@ FROM nginx:alpine
 COPY --from=builder /app/output /usr/share/nginx/html
 COPY --from=builder /start.sh /start.sh
 COPY --from=builder /app /app
-RUN apk add --no-cache python3 py3-pip bash curl && pip install -r /app/requirements.txt
+RUN apk add --no-cache python3 py3-pip bash curl && pip install --break-system-packages -r /app/requirements.txt
 
 WORKDIR /app
 EXPOSE 80

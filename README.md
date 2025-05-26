@@ -40,6 +40,8 @@ Output will be in the output/ folder. Open `output/index.html` in your browser.
 docker build -t static-library-viewer .
 ```
 
+This may take a while, as the building of it includes the first fetch from your library.
+
 ### Run the container
 
 ```bash

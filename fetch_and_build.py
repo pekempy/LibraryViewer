@@ -109,6 +109,7 @@ def fetch_jellyfin_items(config):
 
 
 def download_posters(items):
+    print("📥 Downloading posters...")
     os.makedirs(POSTER_DIR, exist_ok=True)
     for item in items:
         ext = ".jpg"
