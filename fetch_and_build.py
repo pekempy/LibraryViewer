@@ -5,6 +5,7 @@ import shutil
 import json
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
+from tqdm import tqdm 
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -29,6 +30,7 @@ def load_config():
 
 
 def fetch_jellyfin_items(config):
+    print("📡 Fetching items from Jellyfin...")
     base_url = config["jellyfin"]["url"].rstrip("/")
     api_key = config["jellyfin"]["api_key"]
     user_id = config["jellyfin"]["user_id"]
@@ -44,7 +46,7 @@ def fetch_jellyfin_items(config):
         return []
 
     items = []
-    for item in libraries.get("Items", []):
+    for item in tqdm(libraries.get("Items", []), desc="📦 Processing Items", unit="item"):
         if not item.get("ImageTags"):
             continue
         image_tag = next(iter(item["ImageTags"].values()), None)
@@ -102,6 +104,7 @@ def fetch_jellyfin_items(config):
             "episode_count": episode_count
         })
     return items
+
 
 
 def download_posters(items):

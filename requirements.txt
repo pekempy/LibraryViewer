@@ -2,3 +2,4 @@ requests
 PyYAML
 jinja2
 dotenv
+tqdm
