@@ -24,6 +24,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const movieGrid = document.getElementById("movies-grid");
   const showGrid = document.getElementById("shows-grid");
 
+  let activeType = "Movie";
+
   function openModalFromCard(card) {
     const details = card.dataset;
     titleEl.textContent = details.title || "";
@@ -51,7 +53,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function createCard(item) {
     const card = document.createElement("div");
-    card.className = "card clickable";
+    card.className = `card clickable ${
+      item.type === "Movie" ? "movie" : "show"
+    }`;
     card.dataset.title = item.title;
     card.dataset.year = item.year;
     card.dataset.size = item.size / (1024 * 1024 * 1024);
@@ -109,8 +113,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function loadNextBatch() {
-    const activeTab = document.querySelector(".tab-content.active");
-    const grid = activeTab.querySelector(".grid");
+    const grid = activeType === "Movie" ? movieGrid : showGrid;
     const nextBatch = filteredCards.slice(
       currentIndex,
       currentIndex + CARDS_PER_BATCH
@@ -131,15 +134,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   function render() {
-    const activeTab = document.querySelector(".tab-content.active");
     const genre = genreSelect.value;
     const year = yearSelect.value;
     const query = searchInput.value.toLowerCase().trim();
     const sort = sortSelect.value;
 
-    allCards.forEach((card) => (card.style.display = "none"));
-
     filteredCards = allCards.filter((card) => {
+      const isActive =
+        (activeType === "Movie" && card.classList.contains("movie")) ||
+        (activeType === "Series" && card.classList.contains("show"));
+      if (!isActive) return false;
+
       const title = card.dataset.title.toLowerCase();
       const cardYear = card.dataset.year;
       const cardGenres = card.dataset.genres.split(",");
@@ -176,7 +181,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     currentIndex = 0;
-    const grid = activeTab.querySelector(".grid");
+    const movieTab = document.getElementById("movies");
+    const showTab = document.getElementById("shows");
+    movieTab.classList.toggle("active", activeType === "Movie");
+    showTab.classList.toggle("active", activeType === "Series");
+
+    const grid = activeType === "Movie" ? movieGrid : showGrid;
     grid.innerHTML = "";
     loadNextBatch();
   }
@@ -190,11 +200,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       document
         .querySelectorAll(".tab-button")
         .forEach((b) => b.classList.remove("active"));
-      document
-        .querySelectorAll(".tab-content")
-        .forEach((tab) => tab.classList.remove("active"));
       btn.classList.add("active");
-      document.getElementById(btn.dataset.tab).classList.add("active");
+      activeType = btn.dataset.tab === "movies" ? "Movie" : "Series";
       render();
     });
   });
@@ -213,7 +220,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  // Fetch and build cards from JSON
   const res = await fetch("media.json");
   const data = await res.json();
   const movieCount = document.getElementById("movie-count");
