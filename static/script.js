@@ -97,6 +97,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (e.target === modal) modal.classList.remove("show");
   });
 
+  const seenLetters = { movies: new Set(), shows: new Set() };
   function createCard(item) {
     const card = document.createElement("div");
     card.className = `card clickable ${
@@ -111,7 +112,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.dataset.runtime = item.runtime_ticks;
     card.dataset.description = item.overview || "";
 
+    function getFirstCharForJump(title) {
+      const articles = ["a", "an", "the", "and", "it"];
+      const words = title.toLowerCase().split(" ");
+      const index = articles.includes(words[0]) ? 1 : 0;
+      const char = words[index]?.[0]?.toUpperCase() || "#";
+      return /^[A-Z]$/.test(char) ? char : "#";
+    }
+
+    const firstChar = getFirstCharForJump(item.title);
+
+    const typeKey = item.type === "Movie" ? "movies" : "shows";
+    let anchor = "";
+
+    if (!seenLetters[typeKey].has(firstChar)) {
+      seenLetters[typeKey].add(firstChar);
+      anchor = `<a id="jump-${firstChar}"></a>`;
+    }
+
     card.innerHTML = `
+      ${anchor}
       <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
       <h3>${item.title}</h3>
       <p>${item.year || ""}</p>
@@ -292,5 +312,28 @@ document.addEventListener("DOMContentLoaded", async () => {
   const allGenres = new Set(data.flatMap((item) => item.genres || []));
   const genreColorMap = generateColorMap(allGenres);
   injectGenreStyles(genreColorMap);
+  document.querySelectorAll(".jump-list a").forEach((link) => {
+    link.addEventListener("click", async (e) => {
+      e.preventDefault();
+      const targetId = link.getAttribute("href").slice(1);
+      const anchor = document.getElementById(targetId);
+
+      if (!anchor) {
+        // Try to load until the anchor appears or we exhaust cards
+        while (
+          !document.getElementById(targetId) &&
+          currentIndex < filteredCards.length
+        ) {
+          loadNextBatch();
+          await new Promise((r) => setTimeout(r, 0)); // let DOM update
+        }
+      }
+
+      const finalAnchor = document.getElementById(targetId);
+      if (finalAnchor) {
+        finalAnchor.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  });
   render();
 });

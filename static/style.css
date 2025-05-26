@@ -303,3 +303,28 @@ nav a:hover,
     font-size: 0.7rem;
   }
 }
+
+.jump-list {
+  position: sticky;
+  top: 10px;
+  float: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0.5em;
+  z-index: 999;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.jump-list a {
+  font-size: 0.9em;
+  text-decoration: none;
+  color: #666;
+  text-align: center;
+}
+
+.jump-list a:hover {
+  text-decoration: underline;
+  color: #000;
+}
