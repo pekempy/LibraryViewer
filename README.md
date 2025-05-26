@@ -19,6 +19,10 @@ PLEX_URL=http://localhost:32400
 PLEX_TOKEN=your_plex_token
 ```
 
+## Testing / Development
+
+Using `npx` to run `npx serve` allows the json to load and populate the cards.
+
 ## 🛠 Manual Usage (Python)
 
 ```bash

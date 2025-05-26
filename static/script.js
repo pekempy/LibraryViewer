@@ -1,8 +1,11 @@
-document.addEventListener("DOMContentLoaded", () => {
+// script.js (patched to load media.json dynamically and build everything client-side)
+
+document.addEventListener("DOMContentLoaded", async () => {
   const sortSelect = document.getElementById("sort");
   const genreSelect = document.getElementById("genre");
   const yearSelect = document.getElementById("year");
   const searchInput = document.getElementById("search");
+  const scrollTopBtn = document.getElementById("scrollTopBtn");
 
   const modal = document.getElementById("modal");
   const closeButton = modal.querySelector(".close-button");
@@ -13,29 +16,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const runtimeEl = document.getElementById("modal-runtime");
   const descriptionEl = document.getElementById("modal-description");
 
+  const CARDS_PER_BATCH = 200;
+  let currentIndex = 0;
+  let filteredCards = [];
+  let allCards = [];
+
+  const movieGrid = document.getElementById("movies-grid");
+  const showGrid = document.getElementById("shows-grid");
+
   function openModalFromCard(card) {
-    const details = card.querySelector(".hidden-details");
-    if (!details) return;
+    const details = card.dataset;
+    titleEl.textContent = details.title || "";
+    yearEl.textContent = details.year ? `Year: ${details.year}` : "";
+    directorEl.textContent = details.directors
+      ? `Director(s): ${details.directors}`
+      : "";
+    ratingEl.textContent = details.rating ? `Rating: ${details.rating}` : "";
 
-    titleEl.textContent = details.dataset.title || "";
-    yearEl.textContent = details.dataset.year
-      ? `Year: ${details.dataset.year}`
-      : "";
-    directorEl.textContent = details.dataset.directors
-      ? `Director(s): ${details.dataset.directors}`
-      : "";
-    ratingEl.textContent = details.dataset.rating
-      ? `Rating: ${details.dataset.rating}`
-      : "";
-
-    if (details.dataset.runtime) {
-      const minutes = Math.round(parseInt(details.dataset.runtime) / 600000000);
+    if (details.runtime) {
+      const minutes = Math.round(parseInt(details.runtime) / 600000000);
       runtimeEl.textContent = `Runtime: ${minutes} min`;
     } else {
       runtimeEl.textContent = "";
     }
 
-    descriptionEl.textContent = details.dataset.description || "";
+    descriptionEl.textContent = details.description || "";
     modal.classList.add("show");
   }
 
@@ -44,41 +49,114 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target === modal) modal.classList.remove("show");
   });
 
+  function createCard(item) {
+    const card = document.createElement("div");
+    card.className = "card clickable";
+    card.dataset.title = item.title;
+    card.dataset.year = item.year;
+    card.dataset.size = item.size / (1024 * 1024 * 1024);
+    card.dataset.genres = item.genres.join(",");
+    card.dataset.directors = item.directors.join(", ");
+    card.dataset.rating = item.official_rating || item.community_rating;
+    card.dataset.runtime = item.runtime_ticks;
+    card.dataset.description = item.overview || "";
+
+    card.innerHTML = `
+      <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
+      <h3>${item.title}</h3>
+      <p>${item.year || ""}</p>
+      <p>${(item.size / (1024 * 1024 * 1024)).toFixed(2)} GB</p>
+      <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
+        ${item.genres
+          .map(
+            (genre) =>
+              `<span class="badge genre-${genre
+                .replace(/\s+/g, "_")
+                .toLowerCase()}">${genre}</span>`
+          )
+          .join("")}
+      </p>
+    `;
+
+    card.addEventListener("click", () => openModalFromCard(card));
+    return card;
+  }
+
+  function populateSelectors(items) {
+    const allGenres = new Set();
+    const allYears = new Set();
+
+    items.forEach((item) => {
+      (item.genres || []).forEach((g) => allGenres.add(g));
+      if (item.year) allYears.add(item.year);
+    });
+
+    [...allGenres].sort().forEach((g) => {
+      const opt = document.createElement("option");
+      opt.value = g;
+      opt.textContent = g;
+      genreSelect.appendChild(opt);
+    });
+
+    [...allYears]
+      .sort((a, b) => b - a)
+      .forEach((y) => {
+        const opt = document.createElement("option");
+        opt.value = y;
+        opt.textContent = y;
+        yearSelect.appendChild(opt);
+      });
+  }
+
+  function loadNextBatch() {
+    const activeTab = document.querySelector(".tab-content.active");
+    const grid = activeTab.querySelector(".grid");
+    const nextBatch = filteredCards.slice(
+      currentIndex,
+      currentIndex + CARDS_PER_BATCH
+    );
+    nextBatch.forEach((card) => {
+      card.style.display = "";
+      grid.appendChild(card);
+    });
+    currentIndex += CARDS_PER_BATCH;
+  }
+
+  function handleScroll() {
+    const nearBottom =
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 300;
+    if (nearBottom && currentIndex < filteredCards.length) {
+      loadNextBatch();
+    }
+  }
+
   function render() {
     const activeTab = document.querySelector(".tab-content.active");
-    const type = activeTab.id === "movies" ? "Movie" : "Series";
     const genre = genreSelect.value;
     const year = yearSelect.value;
     const query = searchInput.value.toLowerCase().trim();
     const sort = sortSelect.value;
 
-    const allCards = Array.from(activeTab.querySelectorAll(".card"));
+    allCards.forEach((card) => (card.style.display = "none"));
 
-    allCards.forEach((card) => {
+    filteredCards = allCards.filter((card) => {
       const title = card.dataset.title.toLowerCase();
       const cardYear = card.dataset.year;
       const cardGenres = card.dataset.genres.split(",");
-
-      const matchesGenre = !genre || cardGenres.includes(genre);
-      const matchesYear = !year || cardYear === year;
-      const matchesSearch = !query || title.includes(query);
-
-      const shouldShow = matchesGenre && matchesYear && matchesSearch;
-      card.style.display = shouldShow ? "" : "none";
+      return (
+        (!genre || cardGenres.includes(genre)) &&
+        (!year || cardYear === year) &&
+        (!query || title.includes(query))
+      );
     });
 
-    const visibleCards = allCards.filter(
-      (card) => card.style.display !== "none"
-    );
-
-    visibleCards.sort((a, b) => {
+    filteredCards.sort((a, b) => {
       const aTitle = a.dataset.title;
       const bTitle = b.dataset.title;
       const aYear = parseInt(a.dataset.year) || 0;
       const bYear = parseInt(b.dataset.year) || 0;
       const aSize = parseFloat(a.dataset.size) || 0;
       const bSize = parseFloat(b.dataset.size) || 0;
-
       switch (sort) {
         case "title":
           return aTitle.localeCompare(bTitle);
@@ -97,8 +175,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    currentIndex = 0;
     const grid = activeTab.querySelector(".grid");
-    visibleCards.forEach((card) => grid.appendChild(card));
+    grid.innerHTML = "";
+    loadNextBatch();
   }
 
   [sortSelect, genreSelect, yearSelect, searchInput].forEach((el) =>
@@ -119,9 +199,44 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.querySelectorAll(".card").forEach((card) => {
-    card.addEventListener("click", () => openModalFromCard(card));
+  window.addEventListener("scroll", handleScroll);
+
+  window.addEventListener("scroll", () => {
+    if (window.scrollY > 400) {
+      scrollTopBtn.classList.add("show");
+    } else {
+      scrollTopBtn.classList.remove("show");
+    }
   });
 
+  scrollTopBtn.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  // Fetch and build cards from JSON
+  const res = await fetch("media.json");
+  const data = await res.json();
+  const movieCount = document.getElementById("movie-count");
+  const showCount = document.getElementById("show-count");
+
+  const movieItems = data.filter((item) => item.type === "Movie");
+  const showItems = data.filter((item) => item.type === "Series");
+
+  movieItems.forEach((item) => {
+    const card = createCard(item);
+    movieGrid.appendChild(card);
+    allCards.push(card);
+  });
+
+  showItems.forEach((item) => {
+    const card = createCard(item);
+    showGrid.appendChild(card);
+    allCards.push(card);
+  });
+
+  movieCount.textContent = `${movieItems.length} titles`;
+  showCount.textContent = `${showItems.length} series`;
+
+  populateSelectors(data);
   render();
 });

@@ -1,16 +1,18 @@
-# ---- Stage 1: Build the static site ----
-FROM python:3.11-alpine AS builder
+FROM python:3.13-alpine AS base
 WORKDIR /app
 
-# Install system dependencies needed for pip
-RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev py3-pip
+RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev py3-pip bash curl nginx
 
 COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
-RUN python fetch_and_build.py
 
-# ---- Stage 2: Serve using nginx ----
-FROM nginx:alpine
-COPY --from=builder /app/output /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# Copy static nginx config (or leave default)
+RUN mkdir -p /run/nginx
+
+# Start both fetcher loop and nginx in foreground
+CMD ["bash", "-c", "\
+    python3 fetch_and_build.py && \
+    cp -r output/* /usr/share/nginx/html && \
+    (while true; do sleep 10800; echo '⏰ Updating site...'; python3 fetch_and_build.py && cp -r output/* /usr/share/nginx/html; done) & \
+    nginx -g 'daemon off;' \
+"]

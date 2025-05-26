@@ -3,18 +3,19 @@
 
 <div class="tabs">
   <button class="tab-button active" data-tab="movies">
-    Movies<br /><span class="count">{{ movie_count }} titles</span>
+    Movies<br /><span class="count" id="movie-count">0 titles</span>
   </button>
   <button class="tab-button" data-tab="shows">
-    TV Shows<br /><span class="count">{{ show_count }} series</span>
+    TV Shows<br /><span class="count" id="show-count">0 series</span>
   </button>
 </div>
 
 <div class="controls">
   <label>
     Search:
-    <input id="search" type="text" placeholder="Search..." />
+    <input id="search" class="md-input" type="text" placeholder="Search..." />
   </label>
+  <br />
   <label>
     Sort by:
     <select id="sort">
@@ -30,113 +31,22 @@
     Genre:
     <select id="genre">
       <option value="">All</option>
-      {% for genre in genres %}
-      <option value="{{ genre }}">{{ genre }}</option>
-      {% endfor %}
     </select>
   </label>
   <label>
     Year:
     <select id="year">
       <option value="">All</option>
-      {% for year in years %}
-      <option value="{{ year }}">{{ year }}</option>
-      {% endfor %}
     </select>
   </label>
 </div>
 
 <div id="movies" class="tab-content active">
-  <div class="grid">
-    {% for item in movies %}
-    <div
-      class="card clickable"
-      data-title="{{ item.title }}"
-      data-year="{{ item.year }}"
-      data-size="{{ item.size / (1024*1024*1024) }}"
-      data-genres="{{ item.genres | join(',') }}"
-    >
-      <img src="{{ item.poster_path }}" alt="{{ item.title }}" />
-      <h3>{{ item.title }}</h3>
-      <p>{{ item.year }}</p>
-      <p>{{ (item.size / (1024*1024*1024)) | round(2) }} GB</p>
-      <p
-        style="
-          margin-top: 0.5em;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.3em;
-          justify-content: space-evenly;
-        "
-      >
-        {% for genre in item.genres %}
-        <span class="badge genre-{{ genre|replace(' ', '_')|lower }}"
-          >{{ genre }}</span
-        >
-        {% endfor %}
-      </p>
-      <div
-        class="hidden-details"
-        style="display: none"
-        data-title="{{ item.title }}"
-        data-year="{{ item.year }}"
-        data-directors="{{ item.directors | join(', ') }}"
-        data-rating="{{ item.official_rating or item.community_rating }}"
-        data-runtime="{{ item.runtime_ticks }}"
-        data-description="{{ item.overview }}"
-      ></div>
-    </div>
-    {% endfor %}
-  </div>
+  <div class="grid" id="movies-grid"></div>
 </div>
 
 <div id="shows" class="tab-content">
-  <div class="grid">
-    {% for item in shows %}
-    <div
-      class="card clickable"
-      data-title="{{ item.title }}"
-      data-year="{{ item.year }}"
-      data-size="{{ item.size / (1024*1024*1024) }}"
-      data-genres="{{ item.genres | join(',') }}"
-    >
-      <img src="{{ item.poster_path }}" alt="{{ item.title }}" />
-      <h3>{{ item.title }}</h3>
-      <p>{{ item.year }}</p>
-      <p>{{ (item.size / (1024*1024*1024)) | round(2) }} GB</p>
-      <p
-        style="
-          margin-top: 0.5em;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.3em;
-          justify-content: space-evenly;
-        "
-      >
-        {% for genre in item.genres %}
-        <span class="badge genre-{{ genre|replace(' ', '_')|lower }}"
-          >{{ genre }}</span
-        >
-        {% endfor %}
-      </p>
-      <p class="dimmed">
-        {{ item.season_count }} season{{ 's' if item.season_count != 1 else ''
-        }}, {{ item.episode_count }} episode{{ 's' if item.episode_count != 1
-        else '' }}
-      </p>
-      <div
-        class="hidden-details"
-        style="display: none"
-        data-title="{{ item.title }}"
-        data-year="{{ item.year }}"
-        data-directors="{{ item.directors | join(', ') }}"
-        data-rating="{{ item.official_rating or item.community_rating }}"
-        data-runtime="{{ item.runtime_ticks }}"
-        data-description="{{ item.overview }}"
-      ></div>
-    </div>
-    {% endfor %}
-  </div>
+  <div class="grid" id="shows-grid"></div>
 </div>
 
 <div id="modal" class="modal">
@@ -151,5 +61,6 @@
   </div>
 </div>
 
+<button id="scrollTopBtn" class="scroll-top-btn" title="Back to Top">↑</button>
 <script src="static/script.js"></script>
 {% endblock %}

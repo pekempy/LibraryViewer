@@ -158,6 +158,8 @@ def main():
     items = fetch_jellyfin_items(config)
     download_posters(items)
     render_site(items, config)
+    with open("output/media.json", "w", encoding="utf-8") as f:
+        json.dump(items, f, indent=2)
 
 if __name__ == "__main__":
     main()
