@@ -315,6 +315,7 @@ nav a:hover,
   z-index: 999;
   max-height: 90vh;
   overflow-y: auto;
+  right: 1em;
 }
 
 .jump-list a {
