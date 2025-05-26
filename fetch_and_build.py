@@ -109,7 +109,8 @@ def fetch_jellyfin_items(config):
 
 
 def download_posters(items):
-    print("📥 Downloading posters...")
+    if os.path.exists(POSTER_DIR):
+        shutil.rmtree(POSTER_DIR)
     os.makedirs(POSTER_DIR, exist_ok=True)
     for item in items:
         ext = ".jpg"
