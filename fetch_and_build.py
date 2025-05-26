@@ -12,12 +12,13 @@ JELLYFIN_HEADERS = lambda token: {
     "Content-Type": "application/json"
 }
 
+CONFIG_DIR = "/config"
 POSTER_DIR = "output/posters"
 
 
 def load_config():
-    load_dotenv()
-    with open("config.yaml") as f:
+    load_dotenv(os.path.join(CONFIG_DIR, ".env"))
+    with open(os.path.join(CONFIG_DIR, "config.yaml")) as f:
         config = yaml.safe_load(f)
 
     config["server_name"] = os.getenv("SERVER_NAME", "Media Library")
@@ -161,7 +162,11 @@ def main():
     items = fetch_jellyfin_items(config)
     download_posters(items)
     render_site(items, config)
-    with open("output/media.json", "w", encoding="utf-8") as f:
+
+    output_dir = os.path.join(CONFIG_DIR, "output")
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
         json.dump(items, f, indent=2)
 
 if __name__ == "__main__":
