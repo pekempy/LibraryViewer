@@ -1,5 +1,3 @@
-// script.js (patched to load media.json dynamically and build everything client-side)
-
 document.addEventListener("DOMContentLoaded", async () => {
   const sortSelect = document.getElementById("sort");
   const genreSelect = document.getElementById("genre");
@@ -25,7 +23,55 @@ document.addEventListener("DOMContentLoaded", async () => {
   const showGrid = document.getElementById("shows-grid");
 
   let activeType = "Movie";
+  function getGenreSlug(genre) {
+    return genre
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/&/g, "and")
+      .replace(/[^\w-]/g, "");
+  }
 
+  function generateColorMap(genres) {
+    const sortedGenres = [...genres].map(getGenreSlug).sort();
+    const colorMap = {};
+    const count = sortedGenres.length || 1;
+    const step = 360 / count;
+
+    sortedGenres.forEach((slug, index) => {
+      const hue = Math.round(step * index);
+      const color = `hsl(${hue}, 65%, 55%)`;
+      colorMap[slug] = color;
+    });
+
+    return colorMap;
+  }
+
+  function getContrastTextColor(hsl) {
+    const [h, s, l] = hsl.match(/\d+/g).map(Number);
+    return l > 60 ? "#000" : "#fff";
+  }
+
+  function injectGenreStyles(colorMap) {
+    const style = document.createElement("style");
+    document.head.appendChild(style);
+    const sheet = style.sheet;
+
+    for (const [slug, color] of Object.entries(colorMap)) {
+      const safeSelector = `.genre-${slug}`;
+      const textColor = getContrastTextColor(color);
+      const hsla = color.replace("hsl", "hsla").replace(")", ", 0.3)");
+      const rule = `${safeSelector} {
+        background-color: ${hsla};
+        outline: 1px solid ${color};
+        color: ${textColor};
+      }`;
+      try {
+        sheet.insertRule(rule, sheet.cssRules.length);
+      } catch (e) {
+        console.warn("Failed to insert rule for genre:", slug, rule, e);
+      }
+    }
+  }
   function openModalFromCard(card) {
     const details = card.dataset;
     titleEl.textContent = details.title || "";
@@ -74,9 +120,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         ${item.genres
           .map(
             (genre) =>
-              `<span class="badge genre-${genre
-                .replace(/\s+/g, "_")
-                .toLowerCase()}">${genre}</span>`
+              `<span class="badge genre-${getGenreSlug(genre)}">${genre}</span>`
           )
           .join("")}
       </p>
@@ -244,5 +288,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   showCount.textContent = `${showItems.length} series`;
 
   populateSelectors(data);
+
+  const allGenres = new Set(data.flatMap((item) => item.genres || []));
+  const genreColorMap = generateColorMap(allGenres);
+  injectGenreStyles(genreColorMap);
   render();
 });

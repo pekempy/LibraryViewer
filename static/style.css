@@ -243,3 +243,63 @@ nav a:hover,
   line-height: 1.3;
   outline: 1px solid;
 }
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    padding: 1rem;
+    gap: 1rem;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 1rem;
+  }
+
+  .controls,
+  nav,
+  .tabs {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .md-input {
+    width: 90%;
+    max-width: 100%;
+  }
+
+  .card {
+    padding: 0.75rem;
+  }
+
+  .card h3 {
+    font-size: 1rem;
+  }
+
+  .card p {
+    font-size: 0.85rem;
+  }
+
+  .scroll-top-btn {
+    bottom: 1rem;
+    right: 1rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.2rem;
+  }
+
+  h1,
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  label {
+    font-size: 0.85rem;
+  }
+
+  .badge {
+    font-size: 0.7rem;
+  }
+}

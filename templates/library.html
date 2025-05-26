@@ -15,52 +15,55 @@
     Search:
     <input id="search" class="md-input" type="text" placeholder="Search..." />
   </label>
-  <br />
-  <label>
-    Sort by:
-    <select id="sort">
-      <option value="title">Title (A-Z)</option>
-      <option value="title-desc">Title (Z-A)</option>
-      <option value="year">Year (Newest)</option>
-      <option value="year-asc">Year (Oldest)</option>
-      <option value="size">Size (Largest)</option>
-      <option value="size-asc">Size (Smallest)</option>
-    </select>
-  </label>
-  <label>
-    Genre:
-    <select id="genre">
-      <option value="">All</option>
-    </select>
-  </label>
-  <label>
-    Year:
-    <select id="year">
-      <option value="">All</option>
-    </select>
-  </label>
-</div>
-
-<div id="movies" class="tab-content active">
-  <div class="grid" id="movies-grid"></div>
-</div>
-
-<div id="shows" class="tab-content">
-  <div class="grid" id="shows-grid"></div>
-</div>
-
-<div id="modal" class="modal">
-  <div class="modal-content">
-    <span class="close-button">×</span>
-    <h3 id="modal-title"></h3>
-    <p id="modal-year"></p>
-    <p id="modal-director"></p>
-    <p id="modal-rating"></p>
-    <p id="modal-runtime"></p>
-    <p id="modal-description"></p>
+  <div style="width: 100%"> </div>
+    <label>
+      Sort by:
+      <select id="sort">
+        <option value="title">Title (A-Z)</option>
+        <option value="title-desc">Title (Z-A)</option>
+        <option value="year">Year (Newest)</option>
+        <option value="year-asc">Year (Oldest)</option>
+        <option value="size">Size (Largest)</option>
+        <option value="size-asc">Size (Smallest)</option>
+      </select>
+    </label>
+    <label>
+      Genre:
+      <select id="genre">
+        <option value="">All</option>
+      </select>
+    </label>
+    <label>
+      Year:
+      <select id="year">
+        <option value="">All</option>
+      </select>
+    </label>
   </div>
-</div>
 
-<button id="scrollTopBtn" class="scroll-top-btn" title="Back to Top">↑</button>
-<script src="static/script.js"></script>
-{% endblock %}
+  <div id="movies" class="tab-content active">
+    <div class="grid" id="movies-grid"></div>
+  </div>
+
+  <div id="shows" class="tab-content">
+    <div class="grid" id="shows-grid"></div>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close-button">×</span>
+      <h3 id="modal-title"></h3>
+      <p id="modal-year"></p>
+      <p id="modal-director"></p>
+      <p id="modal-rating"></p>
+      <p id="modal-runtime"></p>
+      <p id="modal-description"></p>
+    </div>
+  </div>
+
+  <button id="scrollTopBtn" class="scroll-top-btn" title="Back to Top">
+    ↑
+  </button>
+  <script src="static/script.js"></script>
+  {% endblock %}
+</div>
