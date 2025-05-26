@@ -1,18 +1,25 @@
-FROM python:3.13-alpine AS base
+FROM python:3.13-alpine AS builder
 WORKDIR /app
 
 RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev py3-pip bash curl nginx
 
 COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
+RUN python fetch_and_build.py
 
-# Copy static nginx config (or leave default)
 RUN mkdir -p /run/nginx
 
-# Start both fetcher loop and nginx in foreground
-CMD ["bash", "-c", "\
-    python3 fetch_and_build.py && \
-    cp -r output/* /usr/share/nginx/html && \
-    (while true; do sleep 10800; echo '⏰ Updating site...'; python3 fetch_and_build.py && cp -r output/* /usr/share/nginx/html; done) & \
-    nginx -g 'daemon off;' \
-"]
+# Add cron-like loop script
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
+# Final stage
+FROM nginx:alpine
+COPY --from=builder /app/output /usr/share/nginx/html
+COPY --from=builder /start.sh /start.sh
+COPY --from=builder /app /app
+RUN apk add --no-cache python3 py3-pip bash curl && pip install -r /app/requirements.txt
+
+WORKDIR /app
+EXPOSE 80
+CMD ["bash", "/start.sh"]
