@@ -1,29 +1,321 @@
-body {
-  font-family: Arial, sans-serif;
-  background: #111;
-  color: #eee;
-  text-align: center;
+/* static/style.css */
+
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap");
+
+:root {
+  --md-sys-color-primary: #6750a4;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-background: #121212;
+  --md-sys-color-surface: #1e1e1e;
+  --md-sys-color-on-surface: #e0e0e0;
+  --md-sys-color-outline: #444;
+  --md-sys-color-secondary: #03dac6;
+  --md-elevation-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
-nav a {
-  color: #0ff;
-  margin: 0 1em;
+body {
+  font-family: "Roboto", sans-serif;
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-surface);
+  margin: 0;
+  padding: 0;
+}
+
+h1,
+h2 {
+  text-align: center;
+  color: var(--md-sys-color-primary);
+  margin-top: 1rem;
+}
+
+nav,
+.controls {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem;
+}
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+nav a,
+.tab-button {
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  border: 1px solid var(--md-sys-color-outline);
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+nav a:hover,
+.tab-button:hover {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.tab-button.active {
+  background-color: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+}
+
+.tab-content {
+  display: none;
+  padding: 1rem;
+}
+
+.tab-content.active {
+  display: block;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1em;
-  padding: 1em;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
 }
 
 .card {
-  background: #222;
-  padding: 1em;
-  border-radius: 8px;
+  background-color: var(--md-sys-color-surface);
+  border-radius: 12px;
+  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: scale(1.03);
 }
 
 .card img {
   width: 100%;
-  border-radius: 4px;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.card h3 {
+  font-size: 1.1rem;
+  margin: 0.5rem 0;
+  color: var(--md-sys-color-on-surface);
+}
+
+.card p {
+  font-size: 0.9rem;
+  margin: 0.2rem 0;
+  color: var(--md-sys-color-on-surface);
+}
+
+select {
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--md-sys-color-outline);
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+}
+
+label {
+  color: var(--md-sys-color-on-surface);
+  font-size: 0.9rem;
+}
+
+.modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.modal.show {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-content {
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: var(--md-elevation-shadow);
+  position: relative;
+}
+
+.close-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 1rem;
+  font-size: 1.5rem;
+  color: var(--md-sys-color-on-surface);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  font-size: 1.4rem;
+  color: var(--md-sys-color-primary);
+}
+
+.modal-content p {
+  margin: 0.5rem 0;
+  line-height: 1.4;
+  font-size: 0.95rem;
+  color: var(--md-sys-color-on-surface);
+}
+
+.dimmed {
+  color: #6a6a6a !important;
+  font-size: 0.85rem !important;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  align-items: center;
+  justify-content: center;
+}
+.modal-content {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Genre-specific colors */
+.badge {
+  background-color: rgba(251, 192, 45, 0.62);
+  color: #000;
+  border-radius: 10px;
+  padding: 0.25em 0.6em;
+  outline: 1px solid #fbc02d;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+.badge {
+  border-radius: 5px;
+  padding: 0.25em 0.6em;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  outline: 1px solid;
+}
+
+/* Genre-specific styles */
+.genre-action {
+  background-color: #f44336a1;
+  color: #fff;
+  outline-color: #f44336;
+}
+.genre-adventure {
+  background-color: #2196f3a1;
+  color: #fff;
+  outline-color: #2196f3;
+}
+.genre-animation {
+  background-color: #ff9800a1;
+  color: #fff;
+  outline-color: #ff9800;
+}
+.genre-comedy {
+  background-color: #fbc02d9e;
+  color: #000;
+  outline-color: #fbc02d;
+}
+.genre-crime {
+  background-color: #9e9e9e8f;
+  color: #fff;
+  outline-color: #9e9e9e;
+}
+.genre-documentary {
+  background-color: #4caf509f;
+  color: #fff;
+  outline-color: #4caf50;
+}
+.genre-drama {
+  background-color: #ab47bc9e;
+  color: #fff;
+  outline-color: #ab47bc;
+}
+.genre-family {
+  background-color: #29b6f69e;
+  color: #fff;
+  outline-color: #29b6f6;
+}
+.genre-fantasy {
+  background-color: #7e57c29e;
+  color: #fff;
+  outline-color: #7e57c2;
+}
+.genre-history {
+  background-color: #6d4c41a1;
+  color: #fff;
+  outline-color: #6d4c41;
+}
+.genre-horror {
+  background-color: #e91e639e;
+  color: #fff;
+  outline-color: #e91e63;
+}
+.genre-music {
+  background-color: #00bcd49e;
+  color: #fff;
+  outline-color: #00bcd4;
+}
+.genre-mystery {
+  background-color: #607d8b9e;
+  color: #fff;
+  outline-color: #607d8b;
+}
+.genre-romance {
+  background-color: #ec407a9e;
+  color: #fff;
+  outline-color: #ec407a;
+}
+.genre-science_fiction {
+  background-color: #26c6da9e;
+  color: #fff;
+  outline-color: #26c6da;
+}
+.genre-tv_movie {
+  background-color: #8d6e639e;
+  color: #fff;
+  outline-color: #8d6e63;
+}
+.genre-thriller {
+  background-color: #ff57229e;
+  color: #fff;
+  outline-color: #ff5722;
+}
+.genre-war {
+  background-color: #5d40379e;
+  color: #fff;
+  outline-color: #5d4037;
+}
+.genre-western {
+  background-color: #7955489e;
+  color: #fff;
+  outline-color: #795548;
 }

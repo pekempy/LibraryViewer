@@ -1,11 +1,11 @@
 jellyfin:
-  url: "http://localhost:8096"
+  url: ""
   api_key: ""
   user_id: ""
 
 plex:
-  url: "http://localhost:32400"
-  token: "YOUR_PLEX_TOKEN"
+  url: ""
+  token: ""
   libraries:
     - "Movies"
     - "TV Shows"

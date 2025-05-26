@@ -1,0 +1,110 @@
+{% extends "base.html" %} {% block content %}
+<h2>{{ server_name }}</h2>
+<div class="tabs">
+  <button class="tab-button active" data-tab="movies">
+    Movies<br /><span class="count">{{ movie_count }} titles</span>
+  </button>
+  <button class="tab-button" data-tab="shows">
+    TV Shows<br /><span class="count">{{ show_count }} series</span>
+  </button>
+</div>
+<div class="controls">
+  <label
+    >Sort by:
+    <select id="sort">
+      <option value="title">Title (A-Z)</option>
+      <option value="title-desc">Title (Z-A)</option>
+      <option value="year">Year (Newest)</option>
+      <option value="year-asc">Year (Oldest)</option>
+      <option value="size">Size (Largest)</option>
+      <option value="size-asc">Size (Smallest)</option>
+    </select>
+  </label>
+  <label
+    >Genre:
+    <select id="genre">
+      <option value="">All</option>
+      {% for genre in genres %}
+      <option value="{{ genre }}">{{ genre }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label
+    >Year:
+    <select id="year">
+      <option value="">All</option>
+      {% for year in years %}
+      <option value="{{ year }}">{{ year }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <input
+    type="text"
+    id="search"
+    placeholder="Search..."
+    style="
+      padding: 0.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--md-sys-color-outline);
+      background-color: var(--md-sys-color-surface);
+      color: var(--md-sys-color-on-surface);
+      min-width: 250px;
+    "
+  />
+</div>
+<div id="movies" class="tab-content active">
+  <div class="grid">
+    {% for item in movies %}
+    <div
+      class="card"
+      data-title="{{ item.title }}"
+      data-year="{{ item.year }}"
+      data-size="{{ item.size / (1024*1024*1024) }}"
+      data-genres="{{ item.genres | join(',') }}"
+      data-key="{{ item.key }}"
+    >
+      <img src="{{ item.poster_path }}" alt="{{ item.title }}" />
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.year }}</p>
+      <p>{{ (item.size / (1024*1024*1024)) | round(2) }} GB</p>
+      <p>{{ item.genres | join(', ') }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<div id="shows" class="tab-content">
+  <div class="grid">
+    {% for item in shows %}
+    <div
+      class="card"
+      data-title="{{ item.title }}"
+      data-year="{{ item.year }}"
+      data-size="{{ item.size / (1024*1024*1024) }}"
+      data-genres="{{ item.genres | join(',') }}"
+      data-key="{{ item.key }}"
+    >
+      <img src="{{ item.poster_path }}" alt="{{ item.title }}" />
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.year }}</p>
+      <p>{{ (item.size / (1024*1024*1024)) | round(2) }} GB</p>
+      <p>{{ item.genres | join(', ') }}</p>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span class="close-button">×</span>
+    <h3 id="modal-title"></h3>
+    <p id="modal-year"></p>
+    <p id="modal-director"></p>
+    <p id="modal-rating"></p>
+    <p id="modal-runtime"></p>
+    <p id="modal-description"></p>
+  </div>
+</div>
+<script>
+  const itemDetails = {{ item_details | safe }};
+</script>
+<script src="static/script.js"></script>
+{% endblock %}
