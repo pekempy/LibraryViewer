@@ -12,7 +12,7 @@ JELLYFIN_HEADERS = lambda token: {
     "Content-Type": "application/json"
 }
 
-CONFIG_DIR = "/config"
+CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
 POSTER_DIR = "output/posters"
 
 
