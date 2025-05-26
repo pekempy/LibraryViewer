@@ -128,7 +128,14 @@ label {
 }
 
 .modal {
-  display: flex;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: none;
   align-items: center;
   justify-content: center;
   visibility: hidden;
@@ -138,6 +145,7 @@ label {
 }
 
 .modal.show {
+  display: flex;
   visibility: visible;
   opacity: 1;
   pointer-events: auto;
@@ -183,20 +191,7 @@ label {
   font-size: 0.85rem !important;
 }
 
-.modal {
-  display: none;
-  position: fixed;
-  z-index: 1000;
-  left: 0;
-  top: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(0, 0, 0, 0.6);
-  align-items: center;
-  justify-content: center;
-}
 .modal-content {
-  background: #fff;
   padding: 2rem;
   border-radius: 8px;
   max-width: 600px;
