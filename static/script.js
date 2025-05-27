@@ -32,6 +32,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   let allCards = [];
   let activeType = "Movie";
   let data = [];
+  let activeCollectionFilter = null;
 
   // ─────────────────────────────
   // 🎨 Utility Functions
@@ -91,6 +92,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     genreSelect.value = "";
     yearSelect.value = "";
     searchInput.value = "";
+    sortSelect.value = "title";
+
+    activeCollectionFilter = collectionId;
 
     filteredCards = allCards.filter((card) => {
       const id = card.dataset.id;
@@ -110,6 +114,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     genreSelect.value = "";
     yearSelect.value = "";
     searchInput.value = "";
+    activeCollectionFilter = null;
     render();
   });
 
@@ -237,13 +242,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       const title = card.dataset.title.toLowerCase();
       const cardYear = card.dataset.year;
       const cardGenres = card.dataset.genres.split(",");
+
+      if (activeCollectionFilter) {
+        const id = card.dataset.id;
+        const item = data.find((d) => d.id === id);
+        const inCollection = (item?.collections || []).some(
+          (c) => c.id === activeCollectionFilter
+        );
+        if (!inCollection) return false;
+      }
+
       return (
         (!genre || cardGenres.includes(genre)) &&
         (!year || cardYear === year) &&
         (!query || title.includes(query))
       );
     });
-
     filteredCards.sort((a, b) => {
       const aTitle = a.dataset.title;
       const bTitle = b.dataset.title;
