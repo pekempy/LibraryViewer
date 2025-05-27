@@ -454,22 +454,17 @@ document.addEventListener("DOMContentLoaded", async () => {
       const targetId = `jump-${activeType === "Movie" ? "movies" : "shows"}-${
         link.textContent.trim().toUpperCase() || "#"
       }`;
-      console.log("🔍 Trying to scroll to:", targetId);
-
-      // Start fresh if going backwards
       window.scrollTo({ top: 0 });
       await new Promise((r) => setTimeout(r, 100));
 
       let finalAnchor = null;
 
       while (currentIndex < filteredCards.length) {
-        console.log("🔄 Loading batch... currentIndex =", currentIndex);
         loadNextBatch();
         await new Promise((r) => setTimeout(r, 10));
 
         finalAnchor = document.getElementById(targetId);
         const exists = !!finalAnchor;
-        console.log("📍 Anchor", targetId, "exists?", exists);
 
         if (
           exists &&
@@ -480,11 +475,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       if (finalAnchor) {
-        console.log("✅ Found anchor. Scrolling to:", targetId);
         await new Promise((r) => setTimeout(r, 50));
         finalAnchor.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else {
-        console.log("❌ Failed to find anchor:", targetId);
       }
     });
   });
