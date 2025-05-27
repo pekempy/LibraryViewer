@@ -6,7 +6,7 @@ import json
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 from tqdm import tqdm 
-from collections import Counter
+from collections import Counter, defaultdict
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -152,7 +152,53 @@ def fetch_jellyfin_items(config):
         })
     return items
 
+def enrich_media_with_collections(config, media_items):
+    print("📎 Enriching items with collection data...")
+    base_url = config["jellyfin"]["url"].rstrip("/")
+    api_key = config["jellyfin"]["api_key"]
+    user_id = config["jellyfin"]["user_id"]
+    headers = JELLYFIN_HEADERS(api_key)
 
+    item_map = {item["id"]: item for item in media_items}
+
+    libs = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
+    libraries = libs.json().get("Items", [])
+    movie_libraries = [lib for lib in libraries if lib.get("CollectionType") == "movies"]
+
+    for lib in movie_libraries:
+        lib_id = lib["Id"]
+        collections_url = f"{base_url}/Items"
+        params = {
+            "ParentId": lib_id,
+            "IncludeItemTypes": "BoxSet",
+            "Recursive": "true"
+        }
+        coll_resp = requests.get(collections_url, headers=headers, params=params)
+        if coll_resp.status_code != 200:
+            continue
+
+        collections = coll_resp.json().get("Items", [])
+        for collection in collections:
+            collection_id = collection["Id"]
+            collection_name = collection["Name"]
+
+            members_resp = requests.get(
+                f"{base_url}/Items",
+                headers=headers,
+                params={"ParentId": collection_id, "Recursive": "true"}
+            )
+
+            if members_resp.status_code != 200:
+                continue
+
+            for member in members_resp.json().get("Items", []):
+                member_id = member.get("Id")
+                if member_id in item_map:
+                    item = item_map[member_id]
+                    item.setdefault("collections", []).append({
+                        "id": collection_id,
+                        "name": collection_name
+                    })
 
 def download_posters(items):
     if os.path.exists(POSTER_DIR):
@@ -216,12 +262,19 @@ def main():
     items = fetch_jellyfin_items(config)
     download_posters(items)
     render_site(items, config)
-
     output_dir = os.path.join(CONFIG_DIR, "output")
     os.makedirs(output_dir, exist_ok=True)
 
     with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
         json.dump(items, f, indent=2)
+
+    with open(os.path.join(output_dir, "media.json"), "r", encoding="utf-8") as f:
+        media = json.load(f)
+
+    enrich_media_with_collections(config, media)
+
+    with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
+        json.dump(media, f, indent=2)
 
 if __name__ == "__main__":
     main()

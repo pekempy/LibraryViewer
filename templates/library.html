@@ -39,13 +39,15 @@
         <option value="">All</option>
       </select>
     </label>
+    <button id="clear-filters" class="clear-btn">Clear Filters</button>
   </div>
   <div class="jump-list">
-    <a href="#jump-#">#</a>
+    <a href="#jump-movies-#">#</a>
     {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
-      <a href="#jump-{{ letter }}">{{ letter }}</a>
+      <a href="#jump-movies-{{ letter }}">{{ letter }}</a>
     {% endfor %}
   </div>
+
 
   <div id="movies" class="tab-content active">
     <div class="grid" id="movies-grid"></div>

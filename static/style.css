@@ -10,7 +10,7 @@
   --md-elevation-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
 }
 
-/* Base Styles */
+/* Global & Base Classes */
 body {
   font-family: "Roboto", sans-serif;
   background-color: var(--md-sys-color-background);
@@ -39,7 +39,7 @@ select {
   color: var(--md-sys-color-on-surface);
 }
 
-/* Layout */
+/* Layout classes */
 .controls,
 nav {
   display: flex;
@@ -63,7 +63,7 @@ nav {
   padding: 2rem;
 }
 
-/* Navigation Buttons */
+/* Navigation & Tabs */
 nav a,
 .tab-button {
   background-color: var(--md-sys-color-surface);
@@ -122,6 +122,88 @@ nav a:hover,
   font-size: 0.9rem;
   margin: 0.2rem 0;
   color: var(--md-sys-color-on-surface);
+}
+
+.dimmed {
+  color: #6a6a6a !important;
+  font-size: 0.85rem !important;
+}
+
+/* Genres & Badges */
+.badge {
+  border-radius: 5px;
+  padding: 0.25em 0.6em;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  outline: 1px solid;
+}
+
+/* Collections */
+.collections {
+  font-size: 0.85em;
+  font-style: italic;
+  color: #aaa;
+  text-align: center;
+}
+
+.collection-buttons {
+  display: flex;
+  gap: 0.25em;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 0.3em 0;
+}
+
+.collection-btn {
+  background: #444;
+  color: #fff;
+  border: none;
+  padding: 0.3em 0.6em;
+  border-radius: 0.4em;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.collection-btn:hover {
+  background: #666;
+}
+
+/* Inputs & Forms */
+.md-input {
+  font: inherit;
+  padding: 1rem 1rem 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
+  box-shadow: 0 1px 0 0 var(--md-sys-color-outline);
+  width: 250px;
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.md-input:focus {
+  box-shadow: 0 2px 0 0 var(--md-sys-color-primary);
+}
+
+.md-input::placeholder {
+  color: var(--md-sys-color-on-surface);
+  opacity: 0.6;
+}
+
+.clear-btn {
+  margin-left: 1em;
+  padding: 0.4em 0.8em;
+  background-color: #555;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  background-color: #777;
 }
 
 /* Modals */
@@ -183,35 +265,7 @@ nav a:hover,
   border: none;
 }
 
-.dimmed {
-  color: #6a6a6a !important;
-  font-size: 0.85rem !important;
-}
-
-/* Form Inputs */
-.md-input {
-  font: inherit;
-  padding: 1rem 1rem 0.5rem 1rem;
-  border: none;
-  border-radius: 8px;
-  background-color: var(--md-sys-color-surface);
-  color: var(--md-sys-color-on-surface);
-  box-shadow: 0 1px 0 0 var(--md-sys-color-outline);
-  width: 250px;
-  outline: none;
-  transition: box-shadow 0.2s ease;
-}
-
-.md-input:focus {
-  box-shadow: 0 2px 0 0 var(--md-sys-color-primary);
-}
-
-.md-input::placeholder {
-  color: var(--md-sys-color-on-surface);
-  opacity: 0.6;
-}
-
-/* Floating Button */
+/* Scroll to Top button */
 .scroll-top-btn {
   position: fixed;
   bottom: 1.5rem;
@@ -234,17 +288,39 @@ nav a:hover,
   display: block;
 }
 
-/* Genre Badges */
-.badge {
-  border-radius: 5px;
-  padding: 0.25em 0.6em;
-  font-size: 0.75rem;
-  font-weight: 500;
-  line-height: 1.3;
-  outline: 1px solid;
+/* Jump List */
+.jump-list {
+  position: sticky;
+  top: 10px;
+  float: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0.5em;
+  z-index: 999;
+  max-height: 90vh;
+  overflow-y: auto;
+  right: 1em;
 }
 
-/* Responsive Styles */
+.jump-list a {
+  font-size: 0.9em;
+  text-decoration: none;
+  color: #666;
+  text-align: center;
+}
+
+.jump-list a:hover {
+  text-decoration: underline;
+  color: #000;
+}
+
+.jump-list a.disabled {
+  pointer-events: none;
+  opacity: 0.4;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -302,30 +378,4 @@ nav a:hover,
   .badge {
     font-size: 0.7rem;
   }
-}
-
-.jump-list {
-  position: sticky;
-  top: 10px;
-  float: right;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 0.5em;
-  z-index: 999;
-  max-height: 90vh;
-  overflow-y: auto;
-  right: 1em;
-}
-
-.jump-list a {
-  font-size: 0.9em;
-  text-decoration: none;
-  color: #666;
-  text-align: center;
-}
-
-.jump-list a:hover {
-  text-decoration: underline;
-  color: #000;
 }

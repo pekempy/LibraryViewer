@@ -1,9 +1,13 @@
 document.addEventListener("DOMContentLoaded", async () => {
+  // ─────────────────────────────
+  // 🔧 DOM Elements
+  // ─────────────────────────────
   const sortSelect = document.getElementById("sort");
   const genreSelect = document.getElementById("genre");
   const yearSelect = document.getElementById("year");
   const searchInput = document.getElementById("search");
   const scrollTopBtn = document.getElementById("scrollTopBtn");
+  const clearFiltersBtn = document.getElementById("clear-filters");
 
   const modal = document.getElementById("modal");
   const closeButton = modal.querySelector(".close-button");
@@ -14,15 +18,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   const runtimeEl = document.getElementById("modal-runtime");
   const descriptionEl = document.getElementById("modal-description");
 
+  const movieGrid = document.getElementById("movies-grid");
+  const showGrid = document.getElementById("shows-grid");
+  const movieCount = document.getElementById("movie-count");
+  const showCount = document.getElementById("show-count");
+
+  // ─────────────────────────────
+  // 📦 App State
+  // ─────────────────────────────
   const CARDS_PER_BATCH = 200;
   let currentIndex = 0;
   let filteredCards = [];
   let allCards = [];
-
-  const movieGrid = document.getElementById("movies-grid");
-  const showGrid = document.getElementById("shows-grid");
-
   let activeType = "Movie";
+  let data = [];
+
+  // ─────────────────────────────
+  // 🎨 Utility Functions
+  // ─────────────────────────────
   function getGenreSlug(genre) {
     return genre
       .toLowerCase()
@@ -31,24 +44,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       .replace(/[^\w-]/g, "");
   }
 
+  function getContrastTextColor(hsl) {
+    const [h, s, l] = hsl.match(/\d+/g).map(Number);
+    return l > 60 ? "#000" : "#fff";
+  }
+
   function generateColorMap(genres) {
     const sortedGenres = [...genres].map(getGenreSlug).sort();
     const colorMap = {};
-    const count = sortedGenres.length || 1;
-    const step = 360 / count;
+    const step = 360 / sortedGenres.length;
 
-    sortedGenres.forEach((slug, index) => {
-      const hue = Math.round(step * index);
+    sortedGenres.forEach((slug, i) => {
+      const hue = Math.round(step * i);
       const color = `hsl(${hue}, 65%, 55%)`;
       colorMap[slug] = color;
     });
 
     return colorMap;
-  }
-
-  function getContrastTextColor(hsl) {
-    const [h, s, l] = hsl.match(/\d+/g).map(Number);
-    return l > 60 ? "#000" : "#fff";
   }
 
   function injectGenreStyles(colorMap) {
@@ -57,10 +69,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     const sheet = style.sheet;
 
     for (const [slug, color] of Object.entries(colorMap)) {
-      const safeSelector = `.genre-${slug}`;
       const textColor = getContrastTextColor(color);
       const hsla = color.replace("hsl", "hsla").replace(")", ", 0.3)");
-      const rule = `${safeSelector} {
+      const rule = `.genre-${slug} {
         background-color: ${hsla};
         outline: 1px solid ${color};
         color: ${textColor};
@@ -72,6 +83,39 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
   }
+
+  // ─────────────────────────────
+  // 🧼 Filtering
+  // ─────────────────────────────
+  function filterByCollection(collectionId) {
+    genreSelect.value = "";
+    yearSelect.value = "";
+    searchInput.value = "";
+
+    filteredCards = allCards.filter((card) => {
+      const id = card.dataset.id;
+      const item = data.find((d) => d.id === id);
+      return (item.collections || []).some((c) => c.id === collectionId);
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    currentIndex = 0;
+    const grid = activeType === "Movie" ? movieGrid : showGrid;
+    grid.innerHTML = "";
+    loadNextBatch();
+  }
+
+  clearFiltersBtn.addEventListener("click", () => {
+    sortSelect.value = "title";
+    genreSelect.value = "";
+    yearSelect.value = "";
+    searchInput.value = "";
+    render();
+  });
+
+  // ─────────────────────────────
+  // 🎴 UI Functions
+  // ─────────────────────────────
   function openModalFromCard(card) {
     const details = card.dataset;
     titleEl.textContent = details.title || "";
@@ -80,14 +124,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `Director(s): ${details.directors}`
       : "";
     ratingEl.textContent = details.rating ? `Rating: ${details.rating}` : "";
-
-    if (details.runtime) {
-      const minutes = Math.round(parseInt(details.runtime) / 600000000);
-      runtimeEl.textContent = `Runtime: ${minutes} min`;
-    } else {
-      runtimeEl.textContent = "";
-    }
-
+    runtimeEl.textContent = details.runtime
+      ? `Runtime: ${Math.round(parseInt(details.runtime) / 600000000)} min`
+      : "";
     descriptionEl.textContent = details.description || "";
     modal.classList.add("show");
   }
@@ -98,8 +137,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   const seenLetters = { movies: new Set(), shows: new Set() };
+
   function createCard(item) {
     const card = document.createElement("div");
+    card.dataset.id = item.id;
     card.className = `card clickable ${
       item.type === "Movie" ? "movie" : "show"
     }`;
@@ -112,22 +153,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.dataset.runtime = item.runtime_ticks;
     card.dataset.description = item.overview || "";
 
-    function getFirstCharForJump(title) {
-      const articles = ["a", "an", "the", "and", "it"];
-      const words = title.toLowerCase().split(" ");
-      const index = articles.includes(words[0]) ? 1 : 0;
+    const firstChar = (() => {
+      const articles = ["a", "an", "the", "and", "(", ")"];
+      const words = item.title.toLowerCase().split(" ");
+      const index = words.length > 1 && articles.includes(words[0]) ? 1 : 0;
       const char = words[index]?.[0]?.toUpperCase() || "#";
       return /^[A-Z]$/.test(char) ? char : "#";
-    }
+    })();
 
-    const firstChar = getFirstCharForJump(item.title);
-
-    const typeKey = item.type === "Movie" ? "movies" : "shows";
     let anchor = "";
+    const typeKey = item.type === "Movie" ? "movies" : "shows";
+    const isFirstCard =
+      allCards.filter((c) => c.classList.contains(typeKey.slice(0, -1)))
+        .length === 0;
 
-    if (!seenLetters[typeKey].has(firstChar)) {
+    if (
+      !seenLetters[typeKey].has(firstChar) ||
+      (firstChar === "#" && isFirstCard)
+    ) {
       seenLetters[typeKey].add(firstChar);
-      anchor = `<a id="jump-${firstChar}"></a>`;
+      anchor = `<a id="jump-${typeKey}-${firstChar}"></a>`;
     }
 
     card.innerHTML = `
@@ -136,6 +181,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       <h3>${item.title}</h3>
       <p>${item.year || ""}</p>
       <p>${(item.size / (1024 * 1024 * 1024)).toFixed(2)} GB</p>
+      <div class="collection-buttons">
+        ${(item.collections || [])
+          .map(
+            (c) =>
+              `<button class="collection-btn" data-collection-id="${c.id}">${c.name}</button>`
+          )
+          .join("")}
+      </div>
       <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
         ${item.genres
           .map(
@@ -147,33 +200,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     `;
 
     card.addEventListener("click", () => openModalFromCard(card));
-    return card;
-  }
-
-  function populateSelectors(items) {
-    const allGenres = new Set();
-    const allYears = new Set();
-
-    items.forEach((item) => {
-      (item.genres || []).forEach((g) => allGenres.add(g));
-      if (item.year) allYears.add(item.year);
-    });
-
-    [...allGenres].sort().forEach((g) => {
-      const opt = document.createElement("option");
-      opt.value = g;
-      opt.textContent = g;
-      genreSelect.appendChild(opt);
-    });
-
-    [...allYears]
-      .sort((a, b) => b - a)
-      .forEach((y) => {
-        const opt = document.createElement("option");
-        opt.value = y;
-        opt.textContent = y;
-        yearSelect.appendChild(opt);
+    card.querySelectorAll(".collection-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        filterByCollection(btn.dataset.collectionId);
       });
+    });
+
+    return card;
   }
 
   function loadNextBatch() {
@@ -183,18 +217,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       currentIndex + CARDS_PER_BATCH
     );
     nextBatch.forEach((card) => {
-      card.style.display = "";
       grid.appendChild(card);
     });
     currentIndex += CARDS_PER_BATCH;
-  }
-
-  function handleScroll() {
-    const nearBottom =
-      window.innerHeight + window.scrollY >= document.body.offsetHeight - 300;
-    if (nearBottom && currentIndex < filteredCards.length) {
-      loadNextBatch();
-    }
   }
 
   function render() {
@@ -245,15 +270,129 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     currentIndex = 0;
-    const movieTab = document.getElementById("movies");
-    const showTab = document.getElementById("shows");
-    movieTab.classList.toggle("active", activeType === "Movie");
-    showTab.classList.toggle("active", activeType === "Series");
-
     const grid = activeType === "Movie" ? movieGrid : showGrid;
+    document.querySelectorAll(".jump-list a").forEach((link) => {
+      const letter = link.textContent.trim().toUpperCase();
+      link.setAttribute(
+        "href",
+        `#jump-${activeType === "Movie" ? "movies" : "shows"}-${letter || "#"}`
+      );
+    });
     grid.innerHTML = "";
+
+    seenLetters.movies = new Set();
+    seenLetters.shows = new Set();
+
+    filteredCards.forEach((card) => {
+      const title = card.dataset.title;
+      const type = card.classList.contains("movie") ? "movies" : "shows";
+
+      const articles = ["a", "an", "the"];
+      const words = title.toLowerCase().split(" ");
+      const index = words.length > 1 && articles.includes(words[0]) ? 1 : 0;
+      const char = words[index]?.[0]?.toUpperCase() || "#";
+      const firstChar = /^[A-Z]$/.test(char) ? char : "#";
+
+      seenLetters[type].add(firstChar);
+    });
     loadNextBatch();
   }
+
+  // ─────────────────────────────
+  // 🔁 Data Setup
+  // ─────────────────────────────
+  const res = await fetch("media.json");
+  data = await res.json();
+
+  function getSortTitle(title) {
+    const articles = ["a", "an", "the"];
+    const words = title.toLowerCase().split(" ");
+    if (articles.includes(words[0]) && words.length > 1) {
+      words.shift();
+    }
+    return words.join(" ");
+  }
+
+  const movieItems = data
+    .filter((item) => item.type === "Movie")
+    .sort((a, b) => getSortTitle(a.title).localeCompare(getSortTitle(b.title)));
+
+  const showItems = data
+    .filter((item) => item.type === "Series")
+    .sort((a, b) => getSortTitle(a.title).localeCompare(getSortTitle(b.title)));
+
+  movieItems.forEach((item) => {
+    if (!item.poster_path) {
+      console.warn("❌ Skipping movie with no poster_path:", item.title);
+      return;
+    }
+    const card = createCard(item);
+    movieGrid.appendChild(card);
+    allCards.push(card);
+  });
+
+  showItems.forEach((item) => {
+    const card = createCard(item);
+    showGrid.appendChild(card);
+    allCards.push(card);
+  });
+
+  function updateJumpList() {
+    const typeKey = activeType === "Movie" ? "movies" : "shows";
+    const currentSet = seenLetters[typeKey] || new Set();
+
+    document.querySelectorAll(".jump-list a").forEach((link) => {
+      const raw = link
+        .getAttribute("href")
+        .replace(`#jump-${typeKey}-`, "")
+        .toUpperCase();
+      const letter = raw === "" ? "#" : raw;
+
+      if (currentSet.has(letter)) {
+        link.classList.remove("disabled");
+        link.removeAttribute("disabled");
+        link.setAttribute("tabindex", "0");
+      } else {
+        link.classList.add("disabled");
+        link.setAttribute("disabled", "true");
+        link.setAttribute("tabindex", "-1");
+      }
+    });
+  }
+
+  movieCount.textContent = `${movieItems.length} titles`;
+  showCount.textContent = `${showItems.length} series`;
+
+  function populateSelectors(items) {
+    const allGenres = new Set();
+    const allYears = new Set();
+
+    items.forEach((item) => {
+      (item.genres || []).forEach((g) => allGenres.add(g));
+      if (item.year) allYears.add(item.year);
+    });
+
+    [...allGenres].sort().forEach((g) => {
+      const opt = document.createElement("option");
+      opt.value = g;
+      opt.textContent = g;
+      genreSelect.appendChild(opt);
+    });
+
+    [...allYears]
+      .sort((a, b) => b - a)
+      .forEach((y) => {
+        const opt = document.createElement("option");
+        opt.value = y;
+        opt.textContent = y;
+        yearSelect.appendChild(opt);
+      });
+  }
+
+  populateSelectors(data);
+  const allGenres = new Set(data.flatMap((item) => item.genres || []));
+  const genreColorMap = generateColorMap(allGenres);
+  injectGenreStyles(genreColorMap);
 
   [sortSelect, genreSelect, yearSelect, searchInput].forEach((el) =>
     el.addEventListener("input", render)
@@ -266,11 +405,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         .forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeType = btn.dataset.tab === "movies" ? "Movie" : "Series";
+      document
+        .getElementById("movies")
+        .classList.toggle("active", activeType === "Movie");
+      document
+        .getElementById("shows")
+        .classList.toggle("active", activeType === "Series");
       render();
+      updateJumpList();
     });
   });
-
-  window.addEventListener("scroll", handleScroll);
 
   window.addEventListener("scroll", () => {
     if (window.scrollY > 400) {
@@ -278,67 +422,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     } else {
       scrollTopBtn.classList.remove("show");
     }
+
+    const nearBottom =
+      window.innerHeight + window.scrollY >= document.body.offsetHeight - 300;
+    if (nearBottom && currentIndex < filteredCards.length) {
+      loadNextBatch();
+    }
   });
 
   scrollTopBtn.addEventListener("click", () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 
-  const res = await fetch("media.json");
-  const data = await res.json();
-  const movieCount = document.getElementById("movie-count");
-  const showCount = document.getElementById("show-count");
-
-  const movieItems = data.filter((item) => item.type === "Movie");
-  const showItems = data.filter((item) => item.type === "Series");
-
-  movieItems.forEach((item) => {
-    if (!item.poster_path) {
-      console.warn("❌ Skipping movie with no poster_path:", item.title);
-      return;
-    }
-    const poster = item.poster_path || "static/fallback.jpg";
-    const card = createCard({ ...item, poster_path: poster });
-    movieGrid.appendChild(card);
-    allCards.push(card);
-  });
-
-  showItems.forEach((item) => {
-    const card = createCard(item);
-    showGrid.appendChild(card);
-    allCards.push(card);
-  });
-
-  movieCount.textContent = `${movieItems.length} titles`;
-  showCount.textContent = `${showItems.length} series`;
-
-  populateSelectors(data);
-
-  const allGenres = new Set(data.flatMap((item) => item.genres || []));
-  const genreColorMap = generateColorMap(allGenres);
-  injectGenreStyles(genreColorMap);
   document.querySelectorAll(".jump-list a").forEach((link) => {
     link.addEventListener("click", async (e) => {
       e.preventDefault();
-      const targetId = link.getAttribute("href").slice(1);
-      const anchor = document.getElementById(targetId);
+      const targetId = `jump-${activeType === "Movie" ? "movies" : "shows"}-${
+        link.textContent.trim().toUpperCase() || "#"
+      }`;
+      console.log("🔍 Trying to scroll to:", targetId);
 
-      if (!anchor) {
-        // Try to load until the anchor appears or we exhaust cards
-        while (
-          !document.getElementById(targetId) &&
-          currentIndex < filteredCards.length
+      // Start fresh if going backwards
+      window.scrollTo({ top: 0 });
+      await new Promise((r) => setTimeout(r, 100));
+
+      let finalAnchor = null;
+
+      while (currentIndex < filteredCards.length) {
+        console.log("🔄 Loading batch... currentIndex =", currentIndex);
+        loadNextBatch();
+        await new Promise((r) => setTimeout(r, 10));
+
+        finalAnchor = document.getElementById(targetId);
+        const exists = !!finalAnchor;
+        console.log("📍 Anchor", targetId, "exists?", exists);
+
+        if (
+          exists &&
+          finalAnchor.closest(".tab-content").classList.contains("active")
         ) {
-          loadNextBatch();
-          await new Promise((r) => setTimeout(r, 0)); // let DOM update
+          break;
         }
       }
 
-      const finalAnchor = document.getElementById(targetId);
       if (finalAnchor) {
+        console.log("✅ Found anchor. Scrolling to:", targetId);
+        await new Promise((r) => setTimeout(r, 50));
         finalAnchor.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        console.log("❌ Failed to find anchor:", targetId);
       }
     });
   });
+
   render();
+  updateJumpList();
 });
