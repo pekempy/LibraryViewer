@@ -92,21 +92,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     genreSelect.value = "";
     yearSelect.value = "";
     searchInput.value = "";
-    sortSelect.value = "title";
 
     activeCollectionFilter = collectionId;
 
-    filteredCards = allCards.filter((card) => {
-      const id = card.dataset.id;
-      const item = data.find((d) => d.id === id);
-      return (item.collections || []).some((c) => c.id === collectionId);
-    });
-
+    activeCollectionFilter = collectionId;
+    sortSelect.value = "year-asc";
     window.scrollTo({ top: 0, behavior: "smooth" });
-    currentIndex = 0;
-    const grid = activeType === "Movie" ? movieGrid : showGrid;
-    grid.innerHTML = "";
-    loadNextBatch();
+    render();
   }
 
   clearFiltersBtn.addEventListener("click", () => {
@@ -123,6 +115,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ─────────────────────────────
   function openModalFromCard(card) {
     const details = card.dataset;
+    const item = data.find((d) => d.id === details.id);
+
+    const posterEl = document.getElementById("modal-poster");
+    posterEl.src = details.poster || "";
+    posterEl.alt = details.title || "Poster";
+
     titleEl.textContent = details.title || "";
     yearEl.textContent = details.year ? `Year: ${details.year}` : "";
     directorEl.textContent = details.directors
@@ -133,6 +131,36 @@ document.addEventListener("DOMContentLoaded", async () => {
       ? `Runtime: ${Math.round(parseInt(details.runtime) / 600000000)} min`
       : "";
     descriptionEl.textContent = details.description || "";
+
+    const genres = (details.genres || "")
+      .split(",")
+      .filter(Boolean)
+      .map(
+        (g) =>
+          `<span class="badge genre-${getGenreSlug(
+            g.trim()
+          )}">${g.trim()}</span>`
+      )
+      .join("");
+    document.getElementById("modal-genres").innerHTML = genres;
+
+    const collections = (item?.collections || [])
+      .map(
+        (c) =>
+          `<button class="collection-btn" data-collection-id="${c.id}">${c.name}</button>`
+      )
+      .join("");
+    const collectionsEl = document.getElementById("modal-collections");
+
+    collectionsEl.innerHTML = collections;
+
+    collectionsEl.querySelectorAll(".collection-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        filterByCollection(btn.dataset.collectionId);
+        modal.classList.remove("show");
+      });
+    });
     modal.classList.add("show");
   }
 
@@ -149,6 +177,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.className = `card clickable ${
       item.type === "Movie" ? "movie" : "show"
     }`;
+    card.dataset.poster = item.poster_path;
     card.dataset.title = item.title;
     card.dataset.year = item.year;
     card.dataset.size = item.size / (1024 * 1024 * 1024);
@@ -419,6 +448,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         .forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       activeType = btn.dataset.tab === "movies" ? "Movie" : "Series";
+
+      sortSelect.value = "title";
+      genreSelect.value = "";
+      yearSelect.value = "";
+      searchInput.value = "";
+      activeCollectionFilter = null;
+
       document
         .getElementById("movies")
         .classList.toggle("active", activeType === "Movie");

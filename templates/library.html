@@ -56,16 +56,22 @@
   <div id="shows" class="tab-content">
     <div class="grid" id="shows-grid"></div>
   </div>
-
   <div id="modal" class="modal">
     <div class="modal-content">
-      <span class="close-button">×</span>
-      <h3 id="modal-title"></h3>
-      <p id="modal-year"></p>
-      <p id="modal-director"></p>
-      <p id="modal-rating"></p>
-      <p id="modal-runtime"></p>
-      <p id="modal-description"></p>
+      <span class="close-button">&times;</span>
+      <div class="modal-body">
+        <img id="modal-poster" src="" alt="Poster" />
+        <div class="modal-details">
+          <h2 id="modal-title"></h2>
+          <p id="modal-year"></p>
+          <p id="modal-director"></p>
+          <p id="modal-rating"></p>
+          <p id="modal-runtime"></p>
+          <p id="modal-description"></p>
+          <div id="modal-genres" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3em;"></div>
+          <div id="modal-collections" style="margin-top: 1rem;"></div>
+        </div>
+      </div>
     </div>
   </div>
 
