@@ -6,6 +6,7 @@ import json
 from jinja2 import Environment, FileSystemLoader
 from dotenv import load_dotenv
 from tqdm import tqdm 
+from collections import Counter
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -39,7 +40,7 @@ def fetch_jellyfin_items(config):
     all_items = {}
 
     # Fetch Movies and Series
-    url = f"{base_url}/Users/{user_id}/Items"
+    url = f"{base_url}/Items"
     params = {
         "IncludeItemTypes": "Movie,Series",
         "Recursive": "true",
@@ -60,7 +61,6 @@ def fetch_jellyfin_items(config):
         headers=headers
     )
     collections = coll_resp.json().get("Items", [])
-    print(f"📦 Found {len(collections)} collections total.")
 
     for collection in collections:
         collection_name = collection.get("Name")
@@ -72,7 +72,6 @@ def fetch_jellyfin_items(config):
         )
 
         if members_resp.status_code != 200:
-            print(f"⚠️ Failed to fetch items for collection {collection_name} ({collection_id}): {members_resp.status_code}")
             continue
 
         try:
@@ -94,6 +93,7 @@ def fetch_jellyfin_items(config):
     items = []
     for item in tqdm(all_items.values(), desc="📦 Processing Items", unit="item"):
         if not item.get("ImageTags"):
+            print(f"❌ Skipping '{item.get('Name', '<Unnamed>')}' ({item['Id']}) — no images")
             continue
         image_tag = next(iter(item["ImageTags"].values()), None)
         image_url = f"{base_url}/Items/{item['Id']}/Images/Primary?tag={image_tag}&quality=90"
@@ -150,7 +150,6 @@ def fetch_jellyfin_items(config):
             "episode_count": episode_count,
             "collection": item.get("_collection")
         })
-
     return items
 
 
@@ -183,7 +182,8 @@ def render_site(items, config):
 
     genres = sorted(set(g for item in items for g in item.get("genres", [])))
     years = sorted(set(i["year"] for i in items if i.get("year")), reverse=True)
-
+    print(f"🎬 Total movies passed to template: {len(movies)}")
+    print(f"📺 Total shows passed to template: {len(shows)}")
     print("🧩 Rendering HTML...")
     tmpl = env.get_template("library.html")
     html = tmpl.render(
@@ -211,72 +211,8 @@ def render_site(items, config):
 
     print("✅ Site rendered successfully.")
 
-
-    # DEBUG
-def fetch_movie_collections(config):
-    print("🎯 Fetching movie collections from movie libraries...")
-    base_url = config["jellyfin"]["url"].rstrip("/")
-    api_key = config["jellyfin"]["api_key"]
-    user_id = config["jellyfin"]["user_id"]
-    headers = JELLYFIN_HEADERS(api_key)
-
-    libs = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
-    libraries = libs.json().get("Items", [])
-
-    movie_libraries = [lib for lib in libraries if lib.get("CollectionType") == "movies"]
-    if not movie_libraries:
-        print("❌ No movie libraries found.")
-        return []
-
-    all_collections = []
-
-    for lib in movie_libraries:
-        lib_id = lib["Id"]
-        lib_name = lib["Name"]
-        print(f"📁 Scanning movie library: {lib_name}")
-
-        collections_url = f"{base_url}/Items"
-        params = {
-            "ParentId": lib_id,
-            "IncludeItemTypes": "BoxSet",
-            "Recursive": "true"
-        }
-        coll_resp = requests.get(collections_url, headers=headers, params=params)
-        if coll_resp.status_code != 200:
-            print(f"⚠️ Failed to fetch collections in {lib_name}")
-            continue
-
-        collections = coll_resp.json().get("Items", [])
-        print(f"   ➕ Found {len(collections)} collections")
-        all_collections.extend(collections)
-
-        for collection in collections:
-            collection_name = collection.get("Name")
-            collection_id = collection.get("Id")
-            print(f"\n📦 {collection_name} ({collection_id})")
-
-            members_resp = requests.get(
-                f"{base_url}/Items",
-                headers=headers,
-                params={"ParentId": collection_id}
-            )
-
-            if members_resp.status_code == 200:
-                member_items = members_resp.json().get("Items", [])
-                if not member_items:
-                    print("   (No items found)")
-                for item in member_items:
-                    print(f"   • {item.get('Name', '<Unnamed>')}")
-            else:
-                print(f"⚠️ Failed to fetch items for collection {collection_name} ({collection_id}): {members_resp.status_code}")
-
-    return all_collections
-
-
-
 def main():
     config = load_config()
-    collections = fetch_movie_collections(config)
     items = fetch_jellyfin_items(config)
     download_posters(items)
     render_site(items, config)
@@ -288,7 +224,4 @@ def main():
         json.dump(items, f, indent=2)
 
 if __name__ == "__main__":
-    #main()\
-
-    config = load_config()
-    fetch_movie_collections(config)
+    main()

@@ -30,13 +30,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       .replace(/&/g, "and")
       .replace(/[^\w-]/g, "");
   }
-  function getSortableTitle(title) {
-    const articles = ["a", "an", "the", "and", "it"];
-    const words = title.toLowerCase().split(" ");
-    if (words.length === 1) return title.toLowerCase(); // Don't strip if title is just one word
-    const index = articles.includes(words[0]) ? 1 : 0;
-    return words.slice(index).join(" ");
-  }
+
   function generateColorMap(genres) {
     const sortedGenres = [...genres].map(getGenreSlug).sort();
     const colorMap = {};
@@ -125,7 +119,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const char = words[index]?.[0]?.toUpperCase() || "#";
       return /^[A-Z]$/.test(char) ? char : "#";
     }
+
     const firstChar = getFirstCharForJump(item.title);
+
     const typeKey = item.type === "Movie" ? "movies" : "shows";
     let anchor = "";
 
@@ -134,36 +130,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       anchor = `<a id="jump-${firstChar}"></a>`;
     }
 
-    let footer = "";
-
-    if (item.type === "Series" && item.season_count && item.episode_count) {
-      footer = `<div class="card-meta">📺 ${item.season_count} season${
-        item.season_count !== 1 ? "s" : ""
-      }, ${item.episode_count} episode${
-        item.episode_count !== 1 ? "s" : ""
-      }</div>`;
-    }
-
-    if (item.type === "Movie" && item.collection) {
-      footer = `<div class="card-meta">🎞️ <em>${item.collection}</em></div>`;
-    }
-
     card.innerHTML = `
-    ${anchor}
-    <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
-    <h3>${item.title}</h3>
-    <p>${item.year || ""}</p>
-    <p>${(item.size / (1024 * 1024 * 1024)).toFixed(2)} GB</p>
-    <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
-      ${item.genres
-        .map(
-          (genre) =>
-            `<span class="badge genre-${getGenreSlug(genre)}">${genre}</span>`
-        )
-        .join("")}
-    </p>
-    ${footer}
-  `;
+      ${anchor}
+      <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
+      <h3>${item.title}</h3>
+      <p>${item.year || ""}</p>
+      <p>${(item.size / (1024 * 1024 * 1024)).toFixed(2)} GB</p>
+      <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
+        ${item.genres
+          .map(
+            (genre) =>
+              `<span class="badge genre-${getGenreSlug(genre)}">${genre}</span>`
+          )
+          .join("")}
+      </p>
+    `;
 
     card.addEventListener("click", () => openModalFromCard(card));
     return card;
@@ -247,13 +228,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       const bSize = parseFloat(b.dataset.size) || 0;
       switch (sort) {
         case "title":
-          return getSortableTitle(aTitle).localeCompare(
-            getSortableTitle(bTitle)
-          );
+          return aTitle.localeCompare(bTitle);
         case "title-desc":
-          return getSortableTitle(bTitle).localeCompare(
-            getSortableTitle(aTitle)
-          );
+          return bTitle.localeCompare(aTitle);
         case "year":
           return bYear - aYear;
         case "year-asc":
@@ -316,7 +293,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   const showItems = data.filter((item) => item.type === "Series");
 
   movieItems.forEach((item) => {
-    const card = createCard(item);
+    if (!item.poster_path) {
+      console.warn("❌ Skipping movie with no poster_path:", item.title);
+      return;
+    }
+    const poster = item.poster_path || "static/fallback.jpg";
+    const card = createCard({ ...item, poster_path: poster });
     movieGrid.appendChild(card);
     allCards.push(card);
   });
@@ -339,16 +321,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     link.addEventListener("click", async (e) => {
       e.preventDefault();
       const targetId = link.getAttribute("href").slice(1);
-      let anchor = document.getElementById(targetId);
+      const anchor = document.getElementById(targetId);
 
-      while (!anchor && currentIndex < filteredCards.length) {
-        loadNextBatch();
-        await new Promise((r) => setTimeout(r, 0));
-        anchor = document.getElementById(targetId);
+      if (!anchor) {
+        // Try to load until the anchor appears or we exhaust cards
+        while (
+          !document.getElementById(targetId) &&
+          currentIndex < filteredCards.length
+        ) {
+          loadNextBatch();
+          await new Promise((r) => setTimeout(r, 0)); // let DOM update
+        }
       }
 
-      if (anchor) {
-        anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+      const finalAnchor = document.getElementById(targetId);
+      if (finalAnchor) {
+        finalAnchor.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
   });
