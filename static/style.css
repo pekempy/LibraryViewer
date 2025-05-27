@@ -327,5 +327,5 @@ nav a:hover,
 
 .jump-list a:hover {
   text-decoration: underline;
-  color: #000;
+  color: var(--md-sys-color-primary);
 }
