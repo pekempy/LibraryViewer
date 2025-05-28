@@ -2,6 +2,7 @@ import os
 import requests
 import shutil
 from tqdm import tqdm
+from media_item import MediaItem
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -91,25 +92,27 @@ def fetch_jellyfin_items(config):
 
         directors = [person["Name"] for person in credits if person.get("Type") == "Director"]
 
-        items.append({
-            "key": item["Id"],
-            "title": item.get("Name"),
-            "year": item.get("ProductionYear"),
-            "genres": item.get("Genres", []),
-            "type": item.get("Type"),
-            "id": item["Id"],
-            "image_url": image_url,
-            "media": item.get("MediaSources", []),
-            "size": size,
-            "overview": item.get("Overview"),
-            "directors": directors,
-            "community_rating": item.get("CommunityRating"),
-            "official_rating": item.get("OfficialRating"),
-            "runtime_ticks": item.get("RunTimeTicks"),
-            "season_count": season_count,
-            "episode_count": episode_count,
-            "collection": item.get("_collection")
-        })
+        media_item = MediaItem(
+            source="jellyfin",
+            key=item["Id"],
+            title=item.get("Name"),
+            year=item.get("ProductionYear"),
+            genres=item.get("Genres", []),
+            type=item.get("Type"),
+            id=item["Id"],
+            image_url=image_url,
+            media=item.get("MediaSources", []),
+            size=size,
+            overview=item.get("Overview"),
+            directors=directors,
+            community_rating=item.get("CommunityRating"),
+            official_rating=item.get("OfficialRating"),
+            runtime_ticks=item.get("RunTimeTicks"),
+            season_count=season_count,
+            episode_count=episode_count,
+        )
+        items.append(media_item.to_dict())
+
     return items
 
 def enrich_media_with_collections(config, media_items):

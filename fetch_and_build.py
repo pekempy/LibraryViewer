@@ -12,6 +12,8 @@ def load_config():
     load_dotenv(os.path.join(CONFIG_DIR, ".env"))
     with open(os.path.join(CONFIG_DIR, "config.yaml")) as f:
         config = yaml.safe_load(f)
+    jellyfin_enabled = os.getenv("JELLYFIN_ENABLED", "false").lower() == "true"
+    plex_enabled = os.getenv("PLEX_ENABLED", "false").lower() == "true"
 
     config["server_name"] = os.getenv("SERVER_NAME", "Media Library")
     config["jellyfin"]["url"] = os.getenv("JELLYFIN_URL", config["jellyfin"].get("url"))
@@ -59,8 +61,26 @@ def render_site(items, config):
 
 def main():
     config = load_config()
-    items = fetch_jellyfin_items(config)
-    download_posters(items)
+
+    jellyfin_enabled = os.getenv("JELLYFIN_ENABLED", "false").lower() == "true"
+    plex_enabled = os.getenv("PLEX_ENABLED", "false").lower() == "true"
+
+    items = []
+
+    if jellyfin_enabled:
+        jellyfin_items = fetch_jellyfin_items(config)
+        for item in jellyfin_items:
+            item["source"] = "jellyfin"
+        download_posters(jellyfin_items)
+        items.extend(jellyfin_items)
+
+    if plex_enabled:
+        # plex_items = fetch_plex_items(config)  # you'd write this
+        # for item in plex_items:
+        #     item["source"] = "plex"
+        # items.extend(plex_items) 
+        return  
+
     render_site(items, config)
 
     output_dir = os.path.join(CONFIG_DIR, "output")
@@ -69,13 +89,13 @@ def main():
     with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
         json.dump(items, f, indent=2)
 
-    with open(os.path.join(output_dir, "media.json"), "r", encoding="utf-8") as f:
-        media = json.load(f)
+    if plex_enabled:
+        with open(os.path.join(output_dir, "media.json"), "r", encoding="utf-8") as f:
+            media = json.load(f)
+        enrich_media_with_collections(config, media)
+        with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
+            json.dump(media, f, indent=2)
 
-    enrich_media_with_collections(config, media)
-
-    with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
-        json.dump(media, f, indent=2)
 
 if __name__ == "__main__":
     main()
