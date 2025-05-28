@@ -122,15 +122,33 @@ document.addEventListener("DOMContentLoaded", async () => {
     posterEl.alt = details.title || "Poster";
 
     titleEl.textContent = details.title || "";
-    yearEl.textContent = details.year ? `Year: ${details.year}` : "";
+    yearEl.querySelector(".meta-text").textContent = details.year || "—";
     directorEl.textContent = details.directors
       ? `Director(s): ${details.directors}`
       : "";
-    ratingEl.textContent = details.rating ? `Rating: ${details.rating}` : "";
-    runtimeEl.textContent = details.runtime
-      ? `Runtime: ${Math.round(parseInt(details.runtime) / 600000000)} min`
-      : "";
+    ratingEl.querySelector(".meta-text").textContent = details.rating || "—";
+    const runtimeMinutes = details.runtime
+      ? Math.round(parseInt(details.runtime) / 600000000)
+      : null;
+    runtimeEl.querySelector(".meta-text").textContent = runtimeMinutes
+      ? `${runtimeMinutes} min`
+      : "—";
     descriptionEl.textContent = details.description || "";
+    descriptionEl.classList.remove("expanded", "needs-toggle");
+
+    // Re-check height after rendering
+    setTimeout(() => {
+      if (descriptionEl.scrollHeight > descriptionEl.clientHeight + 10) {
+        descriptionEl.classList.add("needs-toggle");
+      }
+    }, 0);
+
+    // Attach ONE event listener
+    descriptionEl.onclick = () => {
+      if (descriptionEl.classList.contains("needs-toggle")) {
+        descriptionEl.classList.toggle("expanded");
+      }
+    };
 
     const genres = (details.genres || "")
       .split(",")

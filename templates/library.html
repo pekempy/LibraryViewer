@@ -62,14 +62,16 @@
       <div class="modal-body">
         <img id="modal-poster" src="" alt="Poster" />
         <div class="modal-details">
-          <h2 id="modal-title"></h2>
-          <p id="modal-year"></p>
-          <p id="modal-director"></p>
-          <p id="modal-rating"></p>
-          <p id="modal-runtime"></p>
-          <p id="modal-description"></p>
-          <div id="modal-genres" style="margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.3em;"></div>
-          <div id="modal-collections" style="margin-top: 1rem;"></div>
+        <h2 id="modal-title" class="modal-title"></h2>
+          <div id="modal-meta" class="modal-meta">
+            <div id="modal-year" class="meta-item"><span class="material-icons">calendar_today</span> <span class="meta-text"></span></div>
+            <div id="modal-runtime" class="meta-item"><span class="material-icons">schedule</span> <span class="meta-text"></span></div>
+            <div id="modal-rating" class="meta-item"><span class="material-icons">star_rate</span> <span class="meta-text"></span></div>
+          </div>
+          <div id="modal-director" class="meta-directors"></div>
+          <div id="modal-description" class="modal-description"></div>
+          <div id="modal-genres" class="modal-genres"></div>
+          <div id="modal-collections" class="modal-collections"></div>
         </div>
       </div>
     </div>

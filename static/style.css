@@ -1,6 +1,7 @@
 /* Variables */
 :root {
   --md-sys-color-primary: #6750a4;
+  --md-sys-color-accent: #ffb300;
   --md-sys-color-on-primary: #ffffff;
   --md-sys-color-background: #121212;
   --md-sys-color-surface: #1e1e1e;
@@ -253,7 +254,114 @@ nav a:hover,
   line-height: 1.4;
   font-size: 0.95rem;
 }
+.modal-title {
+  font-size: 1.6rem;
+  margin-bottom: 0.5rem;
+  color: var(--md-sys-color-accent);
+}
 
+.modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--md-sys-color-on-surface);
+}
+
+.modal-meta .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.meta-directors {
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--md-sys-color-secondary);
+}
+.modal-description::before {
+  content: "";
+  display: none;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3em;
+  width: 100%;
+  background: linear-gradient(to top, var(--md-sys-color-surface), transparent);
+  z-index: 0;
+  pointer-events: none;
+}
+.modal-description {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  max-height: 7em;
+  position: relative;
+  cursor: pointer;
+  padding-bottom: 2em;
+  overflow: hidden;
+}
+
+.modal-description::after {
+  display: none;
+  content: "...";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--md-sys-color-accent);
+  padding: 0.3em 0.5em;
+  white-space: nowrap;
+  font-weight: bolder;
+}
+
+.modal-description.needs-toggle::after {
+  display: block;
+}
+
+.modal-description.expanded::after {
+  content: "Click to collapse";
+}
+
+.modal-description.expanded {
+  max-height: none;
+}
+.modal-description.expanded::after {
+  content: "Click to collapse";
+  background: none;
+}
+
+.modal-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin-bottom: 1rem;
+}
+
+.modal-collections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+.modal-collections .collection-btn {
+  background: var(--md-sys-color-secondary);
+  color: black;
+  font-weight: bold;
+}
+.modal-meta .material-icons {
+  font-size: 1rem;
+  margin-right: 0.3em;
+  color: var(--md-sys-color-primary);
+}
 .close-button {
   position: absolute;
   top: 0.75rem;
