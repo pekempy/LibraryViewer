@@ -55,7 +55,6 @@ def fetch_jellyfin_items(config):
         return []
 
     # Fetch Collections
-    print("🔎 Fetching collections and their contents...")
     coll_resp = requests.get(
         f"{base_url}/Users/{user_id}/Items?IncludeItemTypes=BoxSet",
         headers=headers
@@ -222,7 +221,6 @@ def render_site(items, config):
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs("output", exist_ok=True)
 
-    print("📊 Organizing items...")
     movies = [i for i in items if i["type"] == "Movie"]
     shows = [i for i in items if i["type"] == "Series"]
 
@@ -245,7 +243,6 @@ def render_site(items, config):
     with open("output/index.html", "w", encoding="utf-8") as f:
         f.write(html)
 
-    print("📁 Copying static assets...")
     for filename in os.listdir("static"):
         src_path = os.path.join("static", filename)
         dest_path = os.path.join("output/static", filename)
@@ -254,8 +251,6 @@ def render_site(items, config):
         else:
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             shutil.copy2(src_path, dest_path)
-
-    print("✅ Site rendered successfully.")
 
 def main():
     config = load_config()

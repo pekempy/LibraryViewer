@@ -288,12 +288,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       );
     });
     filteredCards.sort((a, b) => {
-      const aTitle = a.dataset.title;
-      const bTitle = b.dataset.title;
+      const getTitle = (card) => getSortTitle(card.dataset.title);
+      const aTitle = getTitle(a);
+      const bTitle = getTitle(b);
       const aYear = parseInt(a.dataset.year) || 0;
       const bYear = parseInt(b.dataset.year) || 0;
       const aSize = parseFloat(a.dataset.size) || 0;
       const bSize = parseFloat(b.dataset.size) || 0;
+
       switch (sort) {
         case "title":
           return aTitle.localeCompare(bTitle);
