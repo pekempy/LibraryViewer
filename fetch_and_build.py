@@ -69,17 +69,18 @@ def main():
 
     if jellyfin_enabled:
         jellyfin_items = fetch_jellyfin_items(config)
+        enrich_media_with_collections(config, jellyfin_items)
         for item in jellyfin_items:
             item["source"] = "jellyfin"
         download_posters(jellyfin_items)
         items.extend(jellyfin_items)
 
     if plex_enabled:
-        # plex_items = fetch_plex_items(config)  # you'd write this
+        # plex_items = fetch_plex_items(config)
         # for item in plex_items:
         #     item["source"] = "plex"
-        # items.extend(plex_items) 
-        return  
+        # items.extend(plex_items)
+        pass
 
     render_site(items, config)
 
@@ -88,14 +89,6 @@ def main():
 
     with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
         json.dump(items, f, indent=2)
-
-    if plex_enabled:
-        with open(os.path.join(output_dir, "media.json"), "r", encoding="utf-8") as f:
-            media = json.load(f)
-        enrich_media_with_collections(config, media)
-        with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
-            json.dump(media, f, indent=2)
-
 
 if __name__ == "__main__":
     main()
