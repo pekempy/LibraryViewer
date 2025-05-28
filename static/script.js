@@ -31,7 +31,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   let filteredCards = [];
   let allCards = [];
   let activeType = "Movie";
-  let data = [];
   let activeCollectionFilter = null;
 
   // ─────────────────────────────
@@ -381,7 +380,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 🔁 Data Setup
   // ─────────────────────────────
   const res = await fetch("media.json");
-  data = await res.json();
+  const raw = await res.json();
+
+  const movies = [...(raw.jellyfin || []), ...(raw.plex || [])].filter(
+    (item) => item.type === "Movie"
+  );
+  const shows = [...(raw.jellyfin || []), ...(raw.plex || [])].filter((item) =>
+    ["Show", "Series", "show"].includes(item.type)
+  );
+  const data = [...movies, ...shows];
 
   function getSortTitle(title) {
     const articles = ["a", "an", "the"];

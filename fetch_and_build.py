@@ -1,10 +1,11 @@
 import os
 import json
-from dotenv import load_dotenv
-from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections, download_posters
-from jinja2 import Environment, FileSystemLoader
 import shutil
 import yaml
+from dotenv import load_dotenv
+from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections as enrich_jf_collections, download_posters as download_jf_posters
+from plex_library import fetch_plex_items, enrich_media_with_collections as enrich_plex_collections, download_posters as download_plex_posters
+from jinja2 import Environment, FileSystemLoader
 
 CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
 
@@ -23,16 +24,17 @@ def load_config():
     config["plex"]["token"] = os.getenv("PLEX_TOKEN", config["plex"].get("token"))
     return config
 
-def render_site(items, config):
+def render_site(jellyfin_items, plex_items, config):
     print("🛠️  Rendering site...")
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs("output", exist_ok=True)
 
-    movies = [i for i in items if i["type"] == "Movie"]
-    shows = [i for i in items if i["type"] == "Series"]
+    combined = jellyfin_items + plex_items
+    movies = [i for i in combined if i["type"] == "Movie"]
+    shows = [i for i in combined if i["type"] in ["Show", "Series", "show"]]
+    genres = sorted(set(g for item in combined for g in item.get("genres", [])))
+    years = sorted(set(i["year"] for i in combined if i.get("year")), reverse=True)
 
-    genres = sorted(set(g for item in items for g in item.get("genres", [])))
-    years = sorted(set(i["year"] for i in items if i.get("year")), reverse=True)
     print(f"🎬 Total movies passed to template: {len(movies)}")
     print(f"📺 Total shows passed to template: {len(shows)}")
     print("🧩 Rendering HTML...")
@@ -40,12 +42,14 @@ def render_site(items, config):
     html = tmpl.render(
         movies=movies,
         shows=shows,
+        media_jellyfin=jellyfin_items,
+        media_plex=plex_items,
         genres=genres,
         years=years,
         server_name=config["server_name"],
         movie_count=len(movies),
         show_count=len(shows),
-        item_details=json.dumps({i["key"]: i for i in items})
+        item_details=json.dumps({i["key"]: i for i in combined})
     )
     with open("output/index.html", "w", encoding="utf-8") as f:
         f.write(html)
@@ -65,30 +69,34 @@ def main():
     jellyfin_enabled = os.getenv("JELLYFIN_ENABLED", "false").lower() == "true"
     plex_enabled = os.getenv("PLEX_ENABLED", "false").lower() == "true"
 
-    items = []
+    jellyfin_items = []
+    plex_items = []
 
     if jellyfin_enabled:
         jellyfin_items = fetch_jellyfin_items(config)
-        enrich_media_with_collections(config, jellyfin_items)
+        enrich_jf_collections(jellyfin_items, config)
         for item in jellyfin_items:
             item["source"] = "jellyfin"
-        download_posters(jellyfin_items)
-        items.extend(jellyfin_items)
+        download_jf_posters(jellyfin_items)
 
     if plex_enabled:
-        # plex_items = fetch_plex_items(config)
-        # for item in plex_items:
-        #     item["source"] = "plex"
-        # items.extend(plex_items)
-        pass
+        plex_items = fetch_plex_items(config)
+        enrich_plex_collections(plex_items, config)
+        for item in plex_items[:3]:
+            item["source"] = "plex"
+        download_plex_posters(plex_items, config)
 
-    render_site(items, config)
+    render_site(jellyfin_items, plex_items, config)
 
     output_dir = os.path.join(CONFIG_DIR, "output")
     os.makedirs(output_dir, exist_ok=True)
 
     with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
-        json.dump(items, f, indent=2)
+        json.dump({
+            "jellyfin": jellyfin_items,
+            "plex": plex_items
+        }, f, indent=2)
+
 
 if __name__ == "__main__":
     main()

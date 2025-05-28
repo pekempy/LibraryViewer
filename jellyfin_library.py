@@ -97,19 +97,19 @@ def fetch_jellyfin_items(config):
             credits = []
 
         directors = [person["Name"] for person in credits if person.get("Type") == "Director"]
-
-        media_item = MediaItem.from_jellyfin(item, image_url, size, season_count, episode_count, directors)
+        media = item.get("MediaSources", [])
+        media_item = MediaItem.from_jellyfin(item, image_url, size, season_count, episode_count, directors, media)
         items.append(media_item.to_dict())
 
     return items
 
-def enrich_media_with_collections(config, media_items):
+def enrich_media_with_collections(items, config):
     base_url = config["jellyfin"]["url"].rstrip("/")
     api_key = config["jellyfin"]["api_key"]
     user_id = config["jellyfin"]["user_id"]
     headers = JELLYFIN_HEADERS(api_key)
 
-    item_map = {item["id"]: item for item in media_items}
+    item_map = {item["id"]: item for item in items}
 
     libs = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
     libraries = libs.json().get("Items", [])

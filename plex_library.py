@@ -1,40 +1,127 @@
-# plex_library.py
-
 import os
 import requests
+import shutil
+from tqdm import tqdm
+from media_item import MediaItem
 
-def plex_login(config):
-    """
-    Placeholder for Plex login/connection logic.
-    Currently loads base URL and token from config.
-    """
-    plex_url = config.get("plex", {}).get("url", "").rstrip("/")
-    plex_token = config.get("plex", {}).get("token", "")
-
-    if not plex_url or not plex_token:
-        raise ValueError("Missing Plex URL or token in config")
-
-    headers = {
-        "X-Plex-Token": plex_token,
-        "Accept": "application/json"
-    }
-
-    print(f"🔐 Ready to connect to Plex at {plex_url}")
-    return plex_url, headers
-
+POSTER_DIR = "output/posters"
 
 def fetch_plex_items(config):
-    """
-    Placeholder to fetch items from Plex once logic is implemented.
-    """
-    plex_url, headers = plex_login(config)
+    print("📡 Fetching items from Plex...")
+    base_url = config["plex"]["url"].rstrip("/")
+    token = config["plex"]["token"]
+    headers = {
+        "Accept": "application/json",
+        "X-Plex-Token": token
+    }
+    all_items = []
 
-    # Example: list libraries
-    response = requests.get(f"{plex_url}/library/sections", headers=headers)
-    if response.status_code != 200:
-        print(f"❌ Failed to fetch libraries: {response.status_code}")
-        return []
+    sections_url = f"{base_url}/library/sections"
+    sections_resp = requests.get(sections_url, headers=headers)
+    sections = sections_resp.json()["MediaContainer"].get("Directory", [])
 
-    data = response.json()
-    print(f"📁 Available Plex Libraries: {data}")
-    return data
+    for directory in sections:
+        section_key = directory.get("key")
+        section_type = directory.get("type")
+        if section_type not in ["movie", "show"]:
+            continue
+
+        items_url = f"{base_url}/library/sections/{section_key}/all"
+        items_resp = requests.get(items_url, headers=headers)
+        items = items_resp.json()["MediaContainer"].get("Metadata", [])
+
+        for item in items:
+            item["type"] = section_type.capitalize()
+            item["genres"] = [g["tag"] for g in item.get("Genre", [])]
+            directors = [d["tag"] for d in item.get("Director", [])]
+            media = item.get("Media", [])
+            size = 0
+            if media and "Part" in media[0]:
+                size = media[0]["Part"][0].get("size", 0)
+
+            media_item = MediaItem.from_plex(item, base_url, size, directors, media)
+            all_items.append(media_item.to_dict())
+
+    return all_items
+
+
+def enrich_media_with_collections(items, config):
+    print("🗂️ Fetching collections from Plex...")
+    base_url = config["plex"]["url"].rstrip("/")
+    token = config["plex"]["token"]
+    headers = {
+        "Accept": "application/json",
+        "X-Plex-Token": token
+    }
+
+    item_lookup = {item.get("ratingKey"): item for item in items}
+
+    sections_url = f"{base_url}/library/sections"
+    sections_resp = requests.get(sections_url, headers=headers)
+    sections = sections_resp.json()["MediaContainer"].get("Directory", [])
+
+    for directory in sections:
+        section_key = directory.get("key")
+        section_type = directory.get("type")
+        if section_type != "movie":
+            continue
+
+        collection_url = f"{base_url}/library/sections/{section_key}/collection"
+        coll_resp = requests.get(collection_url, headers=headers)
+        if coll_resp.status_code != 200:
+            continue
+        collections = coll_resp.json()["MediaContainer"].get("Metadata", [])
+
+        for coll in collections:
+            coll_id = coll.get("ratingKey")
+            coll_name = coll.get("title")
+            if not coll_id or not coll_name:
+                continue
+
+            members_url = f"{base_url}/library/sections/{section_key}/all?collection={coll_id}"
+            members_resp = requests.get(members_url, headers=headers)
+            if members_resp.status_code != 200:
+                continue
+
+            members = members_resp.json()["MediaContainer"].get("Metadata", [])
+            for member in members:
+                member_id = member.get("ratingKey")
+                if member_id in item_lookup:
+                    item_lookup[member_id].setdefault("collections", []).append({
+                        "id": coll_id,
+                        "name": coll_name
+                    })
+
+    return list(item_lookup.values())
+
+def download_posters(items, config):
+    print("🖼️  Downloading Plex posters...")
+    base_url = config["plex"]["url"].rstrip("/")
+    token = config["plex"]["token"]
+    headers = {
+        "X-Plex-Token": token
+    }
+
+    os.makedirs(POSTER_DIR, exist_ok=True)
+
+    for item in tqdm(items, desc="⬇️  Posters"):
+        image_url = item.get("thumb")
+        if not image_url:
+            continue
+
+        filename = f"{item.get('ratingKey', item.get('key')).strip('/').replace('/', '_')}.jpg"
+        poster_path = os.path.join(POSTER_DIR, filename)
+        full_url = base_url + image_url
+
+        if not os.path.exists(poster_path):
+            try:
+                r = requests.get(full_url, headers=headers, stream=True)
+                if r.status_code == 200:
+                    with open(poster_path, "wb") as f:
+                        for chunk in r.iter_content(1024):
+                            f.write(chunk)
+            except Exception as e:
+                print(f"⚠️ Failed to download poster for {item.get('title')}: {e}")
+                continue
+
+        item["poster_path"] = f"posters/{filename}"
