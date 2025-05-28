@@ -95,6 +95,9 @@ nav a:hover,
 
 /* Cards */
 .card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   background-color: var(--md-sys-color-surface);
   border-radius: 12px;
   padding: 1rem;
@@ -125,6 +128,36 @@ nav a:hover,
   color: var(--md-sys-color-on-surface);
 }
 
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4em;
+  margin: 0.5em 0;
+}
+
+.card-meta .meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+.card-meta .material-icons {
+  font-size: 1em;
+  color: var(--md-sys-color-primary);
+}
+
+.card-meta .meta-text {
+  color: #eee;
+}
+
 .dimmed {
   color: #6a6a6a !important;
   font-size: 0.85rem !important;
@@ -149,11 +182,13 @@ nav a:hover,
 }
 
 .collection-buttons {
+  padding-top: 0.5em;
+  margin-top: auto;
   display: flex;
-  gap: 0.25em;
+  flex-wrap: nowrap;
   justify-content: center;
-  flex-wrap: wrap;
-  margin: 0.3em 0;
+  gap: 0.25em;
+  overflow: hidden;
 }
 
 .collection-btn {
@@ -164,6 +199,11 @@ nav a:hover,
   border-radius: 0.4em;
   font-size: 0.8em;
   cursor: pointer;
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .collection-btn:hover {

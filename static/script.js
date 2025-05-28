@@ -231,15 +231,21 @@ document.addEventListener("DOMContentLoaded", async () => {
       ${anchor}
       <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
       <h3>${item.title}</h3>
-      <p>${item.year || ""}</p>
-      <p>${(item.size / (1024 * 1024 * 1024)).toFixed(2)} GB</p>
-      <div class="collection-buttons">
-        ${(item.collections || [])
-          .map(
-            (c) =>
-              `<button class="collection-btn" data-collection-id="${c.id}">${c.name}</button>`
-          )
-          .join("")}
+      <div class="card-meta">
+        <div class="meta-item"><span class="material-icons">calendar_today</span> <span class="meta-text">${
+          item.year || "—"
+        }</span></div>
+        <div class="meta-item"><span class="material-icons">sd_storage</span> <span class="meta-text">${(
+          item.size /
+          (1024 * 1024 * 1024)
+        ).toFixed(2)} GB</span></div>
+        ${
+          item.type === "Series"
+            ? `<div class="meta-item"><span class="material-icons">view_list</span> <span class="meta-text">${
+                item.season_count || 0
+              } seasons • ${item.episode_count || 0} episodes</span></div>`
+            : ""
+        }
       </div>
       <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
         ${item.genres
@@ -249,6 +255,16 @@ document.addEventListener("DOMContentLoaded", async () => {
           )
           .join("")}
       </p>
+      <div class="collection-buttons">
+        ${(item.collections || [])
+          .map(
+            (c) =>
+              `<button class="collection-btn" data-collection-id="${
+                c.id
+              }">${c.name.replace(" Collection", "")}</button>`
+          )
+          .join("")}
+      </div>
     `;
 
     card.addEventListener("click", () => openModalFromCard(card));
