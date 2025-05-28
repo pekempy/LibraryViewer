@@ -22,3 +22,25 @@ class MediaItem:
 
     def to_dict(self):
         return self.__dict__
+
+    @classmethod
+    def from_jellyfin(cls, item, image_url, size, season_count, episode_count, directors):
+        return cls(
+            source="jellyfin",
+            key=item["Id"],
+            title=item.get("Name"),
+            year=item.get("ProductionYear"),
+            genres=item.get("Genres", []),
+            type=item.get("Type"),
+            id=item["Id"],
+            image_url=image_url,
+            media=item.get("MediaSources", []),
+            size=size,
+            overview=item.get("Overview"),
+            directors=directors,
+            community_rating=item.get("CommunityRating"),
+            official_rating=item.get("OfficialRating"),
+            runtime_ticks=item.get("RunTimeTicks"),
+            season_count=season_count,
+            episode_count=episode_count,
+        )

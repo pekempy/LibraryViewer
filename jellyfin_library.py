@@ -50,9 +50,15 @@ def fetch_jellyfin_items(config):
             continue
         for member in member_items:
             if member["Id"] in all_items:
-                all_items[member["Id"]]["_collection"] = collection_name
+                all_items[member["Id"]].setdefault("collections", []).append({
+                    "id": collection_id,
+                    "name": collection_name
+                })
             else:
-                member["_collection"] = collection_name
+                member.setdefault("collections", []).append({
+                    "id": collection_id,
+                    "name": collection_name
+                })
                 all_items[member["Id"]] = member
 
     items = []
@@ -92,25 +98,7 @@ def fetch_jellyfin_items(config):
 
         directors = [person["Name"] for person in credits if person.get("Type") == "Director"]
 
-        media_item = MediaItem(
-            source="jellyfin",
-            key=item["Id"],
-            title=item.get("Name"),
-            year=item.get("ProductionYear"),
-            genres=item.get("Genres", []),
-            type=item.get("Type"),
-            id=item["Id"],
-            image_url=image_url,
-            media=item.get("MediaSources", []),
-            size=size,
-            overview=item.get("Overview"),
-            directors=directors,
-            community_rating=item.get("CommunityRating"),
-            official_rating=item.get("OfficialRating"),
-            runtime_ticks=item.get("RunTimeTicks"),
-            season_count=season_count,
-            episode_count=episode_count,
-        )
+        media_item = MediaItem.from_jellyfin(item, image_url, size, season_count, episode_count, directors)
         items.append(media_item.to_dict())
 
     return items
