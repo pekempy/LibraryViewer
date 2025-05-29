@@ -6,7 +6,7 @@ import time
 from PIL import Image
 from dotenv import load_dotenv
 from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections as enrich_jf_collections, download_posters as download_jf_posters
-from plex_library import fetch_plex_items, enrich_media_with_collections as enrich_plex_collections, download_posters as download_plex_posters
+from plex_library import fetch_plex_items
 from jinja2 import Environment, FileSystemLoader
 
 CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
@@ -27,6 +27,8 @@ def load_config():
         "plex": {
             "url": os.getenv("PLEX_URL"),
             "token": os.getenv("PLEX_TOKEN"),
+            "movie_library_name": os.getenv("PLEX_MOVIE_LIBRARY", "movies").lower(),
+            "show_library_name": os.getenv("PLEX_TV_LIBRARY", "tv shows").lower(),
         }
     }
 
@@ -37,28 +39,7 @@ def normalize(s):
     return re.sub(r"\s+", " ", s)
 
 def get_dedupe_key(item):
-    file_path = item.get("file_path", "").replace("\\", "/").lower()
-    title = item.get("title", "")
-    year = item.get("year", "")
-    file_size = item.get("file_size_bytes", 0)
-    item_type = item.get("type", "").lower()
-
-    tmdb_match = re.search(r"\{tmdb-(\d+)\}", file_path)
-    if tmdb_match:
-        return f"tmdb-{tmdb_match.group(1)}"
-
-    norm_title = normalize(title)
-
-    if item_type in ["show", "series"]:
-        return f"show:{norm_title}|{year}"
-
-    if file_path:
-        parts = file_path.split("/")
-        for i in range(len(parts) - 1):
-            if norm_title in normalize(parts[i]):
-                return f"title:{'/'.join(parts[:i+1])}"
-
-    return f"size:{file_size}"
+    return item.get("file_path", "").replace("\\", "/").lower()
 
 def merge_items(jellyfin_items, plex_items):
     def merge_dict(a, b):
@@ -180,39 +161,27 @@ def main():
         plex_items = fetch_plex_items(config)
         log(f"Fetched {len(plex_items)} Plex items")
 
-        total = len(plex_items)
-        for idx, item in enumerate(plex_items, 1):
-            log_progress(idx, total, "🎯 Enriching Plex")
-            enrich_plex_collections([item], config)
 
-        for idx, item in enumerate(plex_items, 1):
-            item["source"] = "plex"
 
-        total = len(plex_items)
-        for idx, item in enumerate(plex_items, 1):
-            log_progress(idx, total, "⬇️ Downloading Plex posters")
-            download_plex_posters([item], config)
-
-        with open(os.path.join(OUTPUT_DIR, "media-plex.json"), "w", encoding="utf-8") as f:
-            json.dump({"plex": plex_items}, f, indent=2)
-
+    plex_items = [i.to_dict() if hasattr(i, "to_dict") else i for i in plex_items]
+    jellyfin_items = [i.to_dict() if hasattr(i, "to_dict") else i for i in jellyfin_items]
     all_items = merge_items(jellyfin_items, plex_items)
 
-    # Remove unused posters
-    used_posters = {
-        item.get("poster_path", "").replace("\\", "/")
-        for item in all_items
-        if item.get("poster_path")
-    }
-    poster_dir = os.path.join("output", "posters")
-    if os.path.isdir(poster_dir):
-        for fname in os.listdir(poster_dir):
-            rel_path = f"posters/{fname}"
-            if rel_path not in used_posters:
-                try:
-                    os.remove(os.path.join(poster_dir, fname))
-                except Exception:
-                    continue
+    # # Remove unused posters
+    # used_posters = {
+    #     item.get("poster_path", "").replace("\\", "/")
+    #     for item in all_items
+    #     if item.get("poster_path")
+    # }
+    # poster_dir = os.path.join("output", "posters")
+    # if os.path.isdir(poster_dir):
+    #     for fname in os.listdir(poster_dir):
+    #         rel_path = f"posters/{fname}"
+    #         if rel_path not in used_posters:
+    #             try:
+    #                 os.remove(os.path.join(poster_dir, fname))
+    #             except Exception:
+    #                 continue
 
     optimise_posters()
     render_site(all_items, config)

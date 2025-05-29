@@ -1,140 +1,128 @@
 import os
 import requests
-import shutil
-from datetime import datetime
 from media_item import MediaItem
 
-POSTER_DIR = "output/posters"
+PLEX_HEADERS = lambda token: {
+    "Accept": "application/json",
+    "X-Plex-Token": token
+}
+
+def get_plex_config():
+    return {
+        "url": os.getenv("PLEX_URL"),
+        "token": os.getenv("PLEX_TOKEN"),
+        "movie_library_name": os.getenv("PLEX_MOVIE_LIBRARY", "movies").lower(),
+        "show_library_name": os.getenv("PLEX_TV_LIBRARY", "tv shows").lower()
+    }
+
+def get_section_keys(config):
+    base_url = config["plex"]["url"].rstrip("/")
+    token = config["plex"]["token"]
+    headers = PLEX_HEADERS(token)
+    sections_url = f"{base_url}/library/sections"
+    resp = requests.get(sections_url, headers=headers)
+    sections = resp.json().get("MediaContainer", {}).get("Directory", [])
+
+    movie_key = next((s["key"] for s in sections if s["title"].lower() == config["plex"]["movie_library_name"]), None)
+    show_key = next((s["key"] for s in sections if s["title"].lower() == config["plex"]["show_library_name"]), None)
+
+    return movie_key, show_key
+
+def should_download_poster(key, updated_at):
+    path = f"output/posters/library_metadata_{key}.jpg"
+    if not os.path.exists(path):
+        return True
+    return os.path.getmtime(path) < updated_at
+
+def download_poster(base_url, key, token):
+    poster_url = f"{base_url}/library/metadata/{key}/thumb?X-Plex-Token={token}"
+    poster_path = f"output/posters/library_metadata_{key}.jpg"
+    os.makedirs("output/posters", exist_ok=True)
+    try:
+        response = requests.get(poster_url, stream=True, timeout=10)
+        if response.status_code == 200:
+            with open(poster_path, "wb") as f:
+                for chunk in response.iter_content(8192):
+                    f.write(chunk)
+    except Exception as e:
+        print(f"❌ Failed to download poster for {key}: {e}")
 
 def fetch_plex_items(config):
-    print("📡 Fetching items from Plex...")
     base_url = config["plex"]["url"].rstrip("/")
     token = config["plex"]["token"]
-    headers = {
-        "Accept": "application/json",
-        "X-Plex-Token": token
-    }
-    
-    allowed_movie = os.getenv("PLEX_MOVIE_LIBRARY", "").lower()
-    allowed_tv = os.getenv("PLEX_TV_LIBRARY", "").lower()
-    allowed_names = {allowed_movie, allowed_tv}
+    headers = PLEX_HEADERS(token)
 
-    all_items = []
+    movie_key, show_key = get_section_keys(config)
+    result = []
 
-    sections_url = f"{base_url}/library/sections"
-    sections_resp = requests.get(sections_url, headers=headers)
-    sections = sections_resp.json()["MediaContainer"].get("Directory", [])
+    if movie_key:
+        movie_url = f"{base_url}/library/sections/{movie_key}/all"
+        movie_params = {"type": "1", "includeGuids": "1"}
+        movie_resp = requests.get(movie_url, headers=headers, params=movie_params)
+        movie_items = movie_resp.json().get("MediaContainer", {}).get("Metadata", [])
 
-    for directory in sections:
-        section_key = directory.get("key")
-        section_type = directory.get("type")
-        section_title = directory.get("title", "").lower()
-        if section_title not in allowed_names:
-            continue
-
-        items_url = f"{base_url}/library/sections/{section_key}/all"
-        items_resp = requests.get(items_url, headers=headers)
-        items = items_resp.json()["MediaContainer"].get("Metadata", [])
-
-        for item in items:
-            item["type"] = section_type.capitalize()
-            item["genres"] = [g["tag"] for g in item.get("Genre", [])]
-            directors = [d["tag"] for d in item.get("Director", [])]
+        for item in movie_items:
             media = item.get("Media", [])
-            size = 0
-            if media and "Part" in media[0]:
-                size = media[0]["Part"][0].get("size", 0)
+            if not media or "Part" not in media[0]:
+                continue
+            size = media[0]["Part"][0].get("size")
+            directors = [d["tag"] for d in item.get("Director", [])] if "Director" in item else []
+            collections = [c["tag"] for c in item.get("Collection", [])] if "Collection" in item else []
+            genres = [g["tag"] for g in item.get("Genre", [])] if "Genre" in item else []
+            media_item = MediaItem.from_plex(item, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
+            media_item.collections = collections
+            result.append(media_item)
 
-            media_item = MediaItem.from_plex(item, base_url, size, directors, media, plex_token=config["plex"]["token"])
-            all_items.append(media_item.to_dict())
+            updated_at = int(item.get("updatedAt", 0))
+            if should_download_poster(item["ratingKey"], updated_at):
+                download_poster(base_url, item["ratingKey"], token)
 
-    return all_items
+    if show_key:
+        show_url = f"{base_url}/library/sections/{show_key}/all"
+        show_params = {"type": "2", "includeGuids": "1"}
+        show_resp = requests.get(show_url, headers=headers, params=show_params)
+        show_items = show_resp.json().get("MediaContainer", {}).get("Metadata", [])
 
+        for show in show_items:
+            if "ratingKey" not in show:
+                continue
+            show_id = show["ratingKey"]
+            season_url = f"{base_url}/library/metadata/{show_id}/children"
+            seasons_resp = requests.get(season_url, headers=headers)
+            seasons = seasons_resp.json().get("MediaContainer", {}).get("Metadata", [])
 
-def enrich_media_with_collections(items, config):
-    print("🗂️ Fetching collections from Plex...")
-    base_url = config["plex"]["url"].rstrip("/")
-    token = config["plex"]["token"]
-    headers = {
-        "Accept": "application/json",
-        "X-Plex-Token": token
-    }
-
-    item_lookup = {item.get("ratingKey"): item for item in items}
-
-    sections_url = f"{base_url}/library/sections"
-    sections_resp = requests.get(sections_url, headers=headers)
-    sections = sections_resp.json()["MediaContainer"].get("Directory", [])
-
-    for directory in sections:
-        section_key = directory.get("key")
-        section_type = directory.get("type")
-        if section_type != "movie":
-            continue
-
-        collection_url = f"{base_url}/library/sections/{section_key}/collection"
-        coll_resp = requests.get(collection_url, headers=headers)
-        if coll_resp.status_code != 200:
-            continue
-        collections = coll_resp.json()["MediaContainer"].get("Metadata", [])
-
-        for coll in collections:
-            coll_id = coll.get("ratingKey")
-            coll_name = coll.get("title")
-            if not coll_id or not coll_name:
+            if not seasons:
                 continue
 
-            members_url = f"{base_url}/library/sections/{section_key}/all?collection={coll_id}"
-            members_resp = requests.get(members_url, headers=headers)
-            if members_resp.status_code != 200:
+            # Find the first episode to get file path and size
+            first_season = seasons[0]
+            season_id = first_season["ratingKey"]
+            episodes_url = f"{base_url}/library/metadata/{season_id}/children"
+            episodes_resp = requests.get(episodes_url, headers=headers)
+            episodes = episodes_resp.json().get("MediaContainer", {}).get("Metadata", [])
+
+            if not episodes:
                 continue
 
-            members = members_resp.json()["MediaContainer"].get("Metadata", [])
-            for member in members:
-                member_id = member.get("ratingKey")
-                if member_id in item_lookup:
-                    item_lookup[member_id].setdefault("collections", []).append({
-                        "id": coll_id,
-                        "name": coll_name
-                    })
-
-    return list(item_lookup.values())
-
-
-def download_posters(items, config):
-    print("🖼️  Downloading Plex posters...")
-    base_url = config["plex"]["url"].rstrip("/")
-    token = config["plex"]["token"]
-    headers = {
-        "X-Plex-Token": token
-    }
-
-    os.makedirs(POSTER_DIR, exist_ok=True)
-
-    total = len(items)
-    for idx, item in enumerate(items, 1):
-        if idx % max(1, total // 10) == 0 or idx == total:
-            percent = int((idx / total) * 100)
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] ⬇️  Posters: {idx}/{total} ({percent}%)")
-
-        image_url = item.get("image_url")
-        if not image_url:
-            continue
-
-        rating_key = item.get("key") or item.get("id")
-        filename = f"library_metadata_{rating_key}.jpg"
-        poster_path = os.path.join(POSTER_DIR, filename)
-        full_url = base_url + image_url
-
-        if not os.path.exists(poster_path):
-            try:
-                r = requests.get(full_url, headers=headers, stream=True)
-                if r.status_code == 200:
-                    with open(poster_path, "wb") as f:
-                        for chunk in r.iter_content(1024):
-                            f.write(chunk)
-            except Exception as e:
-                print(f"⚠️ Failed to download poster for {item.get('title')}: {e}")
+            episode = episodes[0]
+            media = episode.get("Media", [])
+            if not media or "Part" not in media[0]:
                 continue
 
-        item["poster_path"] = f"posters/{filename}"
+            size = media[0]["Part"][0].get("size")
+            directors = [d["tag"] for d in show.get("Director", [])] if "Director" in show else []
+            detail_url = f"{base_url}/library/metadata/{show_id}"
+            detail_resp = requests.get(detail_url, headers=headers)
+            detailed_show = detail_resp.json().get("MediaContainer", {}).get("Metadata", [])[0]
+            collections = [c["tag"] for c in detailed_show.get("Collection", [])] if "Collection" in detailed_show else []
+            genres = [g["tag"] for g in detailed_show.get("Genre", [])] if "Genre" in detailed_show else []
+            media_item = MediaItem.from_plex(show, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
+            media_item.season_count = show.get("childCount")
+            media_item.episode_count = show.get("leafCount")
+            result.append(media_item)
+            
+            updated_at = int(show.get("updatedAt", 0))
+            if should_download_poster(show["ratingKey"], updated_at):
+                download_poster(base_url, show["ratingKey"], token)
+
+    return result

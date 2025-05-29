@@ -95,7 +95,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     activeCollectionFilter = collectionId;
 
-    activeCollectionFilter = collectionId;
     sortSelect.value = "year-asc";
     window.scrollTo({ top: 0, behavior: "smooth" });
     render();
@@ -193,7 +192,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const card = document.createElement("div");
     card.dataset.id = item.id;
     card.className = `card clickable ${
-      item.type === "Movie" ? "movie" : "show"
+      item.type === "movie" ? "movie" : "show"
     }`;
     card.dataset.poster = item.poster_path;
     card.dataset.title = item.title;
@@ -215,7 +214,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     })();
 
     let anchor = "";
-    const typeKey = item.type === "Movie" ? "movies" : "shows";
+    const typeKey = item.type === "movie" ? "movies" : "shows";
     const isFirstCard =
       allCards.filter((c) => c.classList.contains(typeKey.slice(0, -1)))
         .length === 0;
@@ -241,7 +240,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           (1024 * 1024 * 1024)
         ).toFixed(2)} GB</span></div>
         ${
-          item.type === "Series"
+          item.type === "show"
             ? `<div class="meta-item"><span class="material-icons">view_list</span> <span class="meta-text">${
                 item.season_count || 0
               } seasons • ${item.episode_count || 0} episodes</span></div>`
@@ -257,12 +256,20 @@ document.addEventListener("DOMContentLoaded", async () => {
           .join("")}
       </p>
       <div class="collection-buttons">
-        ${(item.collections || [])
+        ${(item.plex_collections || [])
           .map(
             (c) =>
-              `<button class="collection-btn" data-collection-id="${
-                c.id
-              }">${c.name.replace(" Collection", "")}</button>`
+              `<button class="collection-btn plex" data-collection-id="${getGenreSlug(
+                c
+              )}" style="background-color: orange;">${c}</button>`
+          )
+          .join("")}
+        ${(item.jellyfin_collections || [])
+          .map(
+            (c) =>
+              `<button class="collection-btn jellyfin" data-collection-id="${getGenreSlug(
+                c
+              )}" style="background-color: purple;">${c}</button>`
           )
           .join("")}
       </div>
@@ -311,9 +318,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (activeCollectionFilter) {
         const id = card.dataset.id;
         const item = data.find((d) => d.id === id);
-        const inCollection = (item?.collections || []).some(
-          (c) => c.id === activeCollectionFilter
-        );
+        const inCollection = (item?.collectionSlugs || []).includes(activeCollectionFilter);
         if (!inCollection) return false;
       }
 
@@ -391,12 +396,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const raw = await res.json();
 
   const all = raw.all || [];
-  const movies = all.filter((item) => item.type === "Movie");
+  const movies = all.filter((item) => item.type === "movie");
   const shows = all.filter((item) =>
     ["Show", "Series", "show"].includes(item.type)
   );
   const data = [...movies, ...shows];
-
+  data.forEach((item) => {
+    const plexSlugs = (item.plex_collections || []).map(c => `plex-${getGenreSlug(c)}`);
+    const jfSlugs = (item.jellyfin_collections || []).map(c => `jellyfin-${getGenreSlug(c)}`);
+    item.collectionSlugs = [...plexSlugs, ...jfSlugs];
+  });
   function getSortTitle(title) {
     const articles = ["a", "an", "the"];
     const words = title.toLowerCase().split(" ");
@@ -407,7 +416,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const movieItems = data
-    .filter((item) => item.type === "Movie")
+    .filter((item) => item.type === "movie")
     .sort((a, b) => getSortTitle(a.title).localeCompare(getSortTitle(b.title)));
 
   const showItems = data
