@@ -1,0 +1,5 @@
+output/
+.env
+media.json
+media-jf.json
+media-plex.json

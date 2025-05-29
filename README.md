@@ -1,72 +1,83 @@
-# Static Media Library Viewer
+# 📚 Static Media Library Viewer
 
 Generate a browsable static HTML site from your Jellyfin and/or Plex library metadata.
+
+---
 
 ## 🧾 Requirements
 
 - Python 3.9+ (for manual use)
-- Docker (optional, for containerized use)
-- `.env` file with:
+- Docker (optional, recommended for deployment)
+- `.env` file in the root directory with:
 
-```
+```env
 SERVER_NAME="My Media Library"
 
-JELLYFIN_URL=http://localhost:8096
+JELLYFIN_URL=http://your-jellyfin-host:8096
 JELLYFIN_API_KEY=your_jellyfin_api_key
 JELLYFIN_USER_ID=your_jellyfin_user_id
 
-PLEX_URL=http://localhost:32400
+PLEX_URL=http://your-plex-host:32400
 PLEX_TOKEN=your_plex_token
+
+JELLYFIN_ENABLED=true
+PLEX_ENABLED=true
 ```
 
-## Testing / Development
+# ⚙️ Manual Usage (Python)
 
-Using `npx` to run `npx serve` allows the json to load and populate the cards.
-
-## 🛠 Manual Usage (Python)
-
-```bash
 pip install -r requirements.txt
 python fetch_and_build.py
-```
 
-Output will be in the output/ folder. Open `output/index.html` in your browser.
+This generates a static site in the output/ folder.
+Open output/index.html in your browser to view it.
+# 🐳 Docker Usage
+## 🏗 Build the Image
 
-## 🐳 Docker Usage
-
-### Build the image
-
-```bash
 docker build -t static-library-viewer .
-```
 
-This may take a while, as the building of it includes the first fetch from your library.
+    ⏱ This builds the base image. No media is fetched during this step.
 
-### Run the container
+## 🚀 Run the Container
 
-```bash
 docker run -d \
   --env-file .env \
-  -v $(pwd)/output:/app/output \
+  -v $(pwd)/config:/config \
+  -v $(pwd)/output:/usr/share/nginx/html \
   -p 1066:80 \
-  --name library-site \
+  --name media-library \
   static-library-viewer
-```
 
-The generated site will be accessible at http://localhost:1066.
+    At startup, the container will:
 
-## 📁 Output
+        Fetch and merge metadata from Jellyfin/Plex
 
-`output/index.html`: Main page
+        Generate static HTML output
 
-`output/posters/`: Downloaded media images
+        Refresh the site every hour
 
-`output/static/`: Copied JS/CSS
+    Your site will be available at: http://localhost:1066
 
-## 📝 Notes
+# 🗂 Output Structure
 
-Jellyfin is required for full functionality.
+    output/index.html: Main page
 
-Plex is optional; support may be limited.
+    output/posters/: Downloaded poster images
 
-Re-run the script to refresh the data.
+    output/static/: CSS/JS assets
+
+    output/media.json: Combined media metadata
+
+# 💡 Tips
+
+    Use npx serve output during development to live preview your site
+
+    Set JELLYFIN_ENABLED=false or PLEX_ENABLED=false to disable one backend
+
+    Add PLEX_MOVIE_LIBRARY or PLEX_TV_LIBRARY to restrict which libraries are scanned
+
+# 🔐 Disclaimer
+
+    No personal data is stored in the output
+
+    Plex support may be limited depending on metadata access

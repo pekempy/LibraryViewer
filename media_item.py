@@ -36,7 +36,7 @@ class MediaItem:
         def normalize(s):
             s = re.sub(r"[^\w\s]", "", s).lower()
             s = re.sub(r"\b(the|a|an)\b", "", s).strip()
-            return re.sub(r"\s+", " ", s)  
+            return re.sub(r"\s+", " ", s)
 
         norm_title = normalize(title)
         parts = full_path.replace("\\", "/").split("/")
@@ -46,7 +46,15 @@ class MediaItem:
             if norm_title in norm_part:
                 return "/".join(parts[i:])
 
-        return os.path.basename(full_path) 
+        # Attempt TMDB tag match fallback
+        tmdb_match = re.search(r"\{tmdb-(\d+)\}", full_path)
+        if tmdb_match:
+            tmdb_id = tmdb_match.group(1)
+            for i, part in enumerate(parts):
+                if f"tmdb-{tmdb_id}" in part:
+                    return "/".join(parts[i:])
+
+        return os.path.basename(full_path)
 
     @classmethod
     def from_jellyfin(cls, item, image_url, size, season_count, episode_count, directors, media):
@@ -77,7 +85,7 @@ class MediaItem:
         )
 
     @classmethod
-    def from_plex(cls, item, base_url, size, directors, media):
+    def from_plex(cls, item, base_url, size, directors, media, plex_token=None):
         file_path = media[0]["Part"][0].get("file") if media and "Part" in media[0] else ""
         file_size_bytes = size
         relative_path = cls.find_relevant_path(file_path, item.get("title", ""))
@@ -85,7 +93,8 @@ class MediaItem:
         rating_key = item.get("ratingKey")
         thumb = item.get("thumb", "")
         poster_filename = f"library_metadata_{rating_key}"
-        image_url = f"{base_url}{thumb}" if thumb else ""
+        token_param = f"?X-Plex-Token={plex_token}" if plex_token else ""
+        image_url = f"{thumb}{token_param}" if thumb else ""
         poster_path = f"posters/{poster_filename}"
 
         return cls(
@@ -106,7 +115,7 @@ class MediaItem:
             directors=directors,
             community_rating=item.get("rating"),
             official_rating=item.get("contentRating"),
-            runtime_ticks=item.get("duration"),
+            runtime_ticks=media[0].get("duration") if media else None,
             season_count=item.get("childCount") if item.get("type") == "show" else None,
             episode_count=item.get("leafCount") if item.get("type") == "show" else None,
             collections=item.get("collections", []),

@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const sortSelect = document.getElementById("sort");
   const genreSelect = document.getElementById("genre");
   const yearSelect = document.getElementById("year");
+  const sourceSelect = document.getElementById("source");
   const searchInput = document.getElementById("search");
   const scrollTopBtn = document.getElementById("scrollTopBtn");
   const clearFiltersBtn = document.getElementById("clear-filters");
@@ -203,6 +204,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.dataset.rating = item.official_rating || item.community_rating;
     card.dataset.runtime = item.runtime_ticks;
     card.dataset.description = item.overview || "";
+    card.dataset.source = item.source;
 
     const firstChar = (() => {
       const articles = ["a", "an", "the", "and", "(", ")"];
@@ -294,6 +296,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const year = yearSelect.value;
     const query = searchInput.value.toLowerCase().trim();
     const sort = sortSelect.value;
+    const source = sourceSelect?.value || "both";
 
     filteredCards = allCards.filter((card) => {
       const isActive =
@@ -313,6 +316,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         );
         if (!inCollection) return false;
       }
+
+      if (
+        source === "jellyfin" && card.dataset.source !== "jellyfin"
+      ) return false;
+      if (source === "plex" && card.dataset.source !== "plex") return false;
 
       return (
         (!genre || cardGenres.includes(genre)) &&
@@ -382,10 +390,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const res = await fetch("media.json");
   const raw = await res.json();
 
-  const movies = [...(raw.jellyfin || []), ...(raw.plex || [])].filter(
-    (item) => item.type === "Movie"
-  );
-  const shows = [...(raw.jellyfin || []), ...(raw.plex || [])].filter((item) =>
+  const all = raw.all || [];
+  const movies = all.filter((item) => item.type === "Movie");
+  const shows = all.filter((item) =>
     ["Show", "Series", "show"].includes(item.type)
   );
   const data = [...movies, ...shows];
@@ -404,9 +411,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     .sort((a, b) => getSortTitle(a.title).localeCompare(getSortTitle(b.title)));
 
   const showItems = data
-    .filter((item) => item.type === "Series")
-    .sort((a, b) => getSortTitle(a.title).localeCompare(getSortTitle(b.title)));
-
+    .filter((item) => ["Show", "Series", "show"].includes(item.type));
+    
   movieItems.forEach((item) => {
     if (!item.poster_path) {
       console.warn("❌ Skipping movie with no poster_path:", item.title);
@@ -483,6 +489,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   [sortSelect, genreSelect, yearSelect, searchInput].forEach((el) =>
     el.addEventListener("input", render)
   );
+  sourceSelect.addEventListener("input", render);
 
   document.querySelectorAll(".tab-button").forEach((btn) => {
     btn.addEventListener("click", () => {

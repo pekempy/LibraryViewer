@@ -14,6 +14,11 @@ def fetch_plex_items(config):
         "Accept": "application/json",
         "X-Plex-Token": token
     }
+    
+    allowed_movie = os.getenv("PLEX_MOVIE_LIBRARY", "").lower()
+    allowed_tv = os.getenv("PLEX_TV_LIBRARY", "").lower()
+    allowed_names = {allowed_movie, allowed_tv}
+
     all_items = []
 
     sections_url = f"{base_url}/library/sections"
@@ -23,7 +28,8 @@ def fetch_plex_items(config):
     for directory in sections:
         section_key = directory.get("key")
         section_type = directory.get("type")
-        if section_type not in ["movie", "show"]:
+        section_title = directory.get("title", "").lower()
+        if section_title not in allowed_names:
             continue
 
         items_url = f"{base_url}/library/sections/{section_key}/all"
@@ -39,7 +45,7 @@ def fetch_plex_items(config):
             if media and "Part" in media[0]:
                 size = media[0]["Part"][0].get("size", 0)
 
-            media_item = MediaItem.from_plex(item, base_url, size, directors, media)
+            media_item = MediaItem.from_plex(item, base_url, size, directors, media, plex_token=config["plex"]["token"])
             all_items.append(media_item.to_dict())
 
     return all_items
@@ -105,11 +111,12 @@ def download_posters(items, config):
     os.makedirs(POSTER_DIR, exist_ok=True)
 
     for item in tqdm(items, desc="⬇️  Posters"):
-        image_url = item.get("thumb")
+        image_url = item.get("image_url")
         if not image_url:
             continue
 
-        filename = f"{item.get('ratingKey', item.get('key')).strip('/').replace('/', '_')}.jpg"
+        rating_key = item.get("key") or item.get("id")
+        filename = f"library_metadata_{rating_key}.jpg"
         poster_path = os.path.join(POSTER_DIR, filename)
         full_url = base_url + image_url
 
