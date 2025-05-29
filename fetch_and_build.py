@@ -8,6 +8,7 @@ from plex_library import fetch_plex_items, enrich_media_with_collections as enri
 from jinja2 import Environment, FileSystemLoader
 
 CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
+OUTPUT_DIR = os.path.join(CONFIG_DIR, "output")
 
 def load_config():
     load_dotenv(os.path.join(CONFIG_DIR, ".env"))
@@ -23,7 +24,6 @@ def load_config():
             "token": os.getenv("PLEX_TOKEN"),
         }
     }
-
 
 def normalize(s):
     s = re.sub(r"\s*\(\d{4}\)$", "", s)
@@ -86,14 +86,13 @@ def merge_items(jellyfin_items, plex_items):
 
     return list(combined.values())
 
-
 def render_site(all_items, config):
     print("🛠️  Rendering site...")
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs("output", exist_ok=True)
 
     movies = [i for i in all_items if i["type"] == "Movie"]
-    shows = [i for i in all_items if i["type"] in ["Show", "Series", "show"]]
+    shows = [i for i in all_items if i["type"].lower() in ["show", "series"]]
     genres = sorted(set(g for item in all_items for g in item.get("genres", [])))
     years = sorted(set(i["year"] for i in all_items if i.get("year")), reverse=True)
 
@@ -125,6 +124,7 @@ def render_site(all_items, config):
 
 def main():
     config = load_config()
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     jellyfin_enabled = os.getenv("JELLYFIN_ENABLED", "false").lower() == "true"
     plex_enabled = os.getenv("PLEX_ENABLED", "false").lower() == "true"
@@ -132,15 +132,13 @@ def main():
     jellyfin_items = []
     plex_items = []
 
-    os.makedirs(output_dir, exist_ok=True)
-
     if jellyfin_enabled:
         jellyfin_items = fetch_jellyfin_items(config)
         enrich_jf_collections(jellyfin_items, config)
         for item in jellyfin_items:
             item["source"] = "jellyfin"
         download_jf_posters(jellyfin_items)
-        with open(os.path.join(output_dir, "media-jf.json"), "w", encoding="utf-8") as f:
+        with open(os.path.join(OUTPUT_DIR, "media-jf.json"), "w", encoding="utf-8") as f:
             json.dump({"jellyfin": jellyfin_items}, f, indent=2)
 
     if plex_enabled:
@@ -149,8 +147,7 @@ def main():
         for item in plex_items:
             item["source"] = "plex"
         download_plex_posters(plex_items, config)
-
-        with open(os.path.join(output_dir, "media-plex.json"), "w", encoding="utf-8") as f:
+        with open(os.path.join(OUTPUT_DIR, "media-plex.json"), "w", encoding="utf-8") as f:
             json.dump({"plex": plex_items}, f, indent=2)
 
     all_items = merge_items(jellyfin_items, plex_items)
@@ -168,15 +165,12 @@ def main():
             if rel_path not in used_posters:
                 try:
                     os.remove(os.path.join(poster_dir, fname))
-                except Exception as e:
+                except Exception:
                     continue
 
     render_site(all_items, config)
 
-    output_dir = os.path.join(CONFIG_DIR, "output")
-    os.makedirs(output_dir, exist_ok=True)
-
-    with open(os.path.join(output_dir, "media.json"), "w", encoding="utf-8") as f:
+    with open(os.path.join(OUTPUT_DIR, "media.json"), "w", encoding="utf-8") as f:
         json.dump({"all": all_items}, f, indent=2)
 
 if __name__ == "__main__":
