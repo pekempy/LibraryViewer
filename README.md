@@ -28,58 +28,59 @@ PLEX_ENABLED=true
 
 # ⚙️ Manual Usage (Python)
 
-pip install -r requirements.txt
-python fetch_and_build.py
+`pip install -r requirements.txt`
+`python fetch_and_build.py`
 
 This generates a static site in the output/ folder.
 Open output/index.html in your browser to view it.
 # 🐳 Docker Usage
 ## 🏗 Build the Image
 
-docker build -t static-library-viewer .
+`docker build -t static-library-viewer .`
 
-    ⏱ This builds the base image. No media is fetched during this step.
+⏱ This builds the base image. No media is fetched during this step.
 
 ## 🚀 Run the Container
 
+```powershell
 docker run -d \
-  --env-file .env \
-  -v $(pwd)/config:/config \
-  -v $(pwd)/output:/usr/share/nginx/html \
+  -v "C:\Docker\LibraryViewer":/config \
+  -v "C:\Docker\LibraryViewer\output":/app/output \ # Optional: If you want to be able to examine the built files
   -p 1066:80 \
   --name media-library \
-  static-library-viewer
+  ghcr.io/pekempy/libraryviewer:latest
+  ```
 
-    At startup, the container will:
+- At startup, the container will:
 
-        Fetch and merge metadata from Jellyfin/Plex
+- Fetch and merge metadata from Jellyfin/Plex
 
-        Generate static HTML output
+- Generate static HTML output
 
-        Refresh the site every hour
+- Refresh the site every hour
 
-    Your site will be available at: http://localhost:1066
+- Your site will be available at: http://localhost:1066
 
 # 🗂 Output Structure
 
-    output/index.html: Main page
+`output/index.html`: Main page
 
-    output/posters/: Downloaded poster images
+`output/posters/`: Downloaded poster images
 
-    output/static/: CSS/JS assets
+`output/static/`: CSS/JS assets
 
-    output/media.json: Combined media metadata
+`output/media.json`: Combined media metadata
 
 # 💡 Tips
 
-    Use npx serve output during development to live preview your site
+Use npx serve output during development to live preview your site
 
-    Set JELLYFIN_ENABLED=false or PLEX_ENABLED=false to disable one backend
+Set `JELLYFIN_ENABLED=false` or `PLEX_ENABLED=false` to disable one backend
 
-    Add PLEX_MOVIE_LIBRARY or PLEX_TV_LIBRARY to restrict which libraries are scanned
+Add `PLEX_MOVIE_LIBRARY` or `PLEX_TV_LIBRARY` to restrict which libraries are scanned
 
 # 🔐 Disclaimer
 
-    No personal data is stored in the output
+No personal data is stored in the output
 
-    Plex support may be limited depending on metadata access
+Plex support may be limited depending on metadata access

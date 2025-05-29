@@ -132,7 +132,6 @@ def main():
     jellyfin_items = []
     plex_items = []
 
-    output_dir = os.path.join(CONFIG_DIR, "output")
     os.makedirs(output_dir, exist_ok=True)
 
     if jellyfin_enabled:
