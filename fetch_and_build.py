@@ -2,7 +2,6 @@ import re
 import os
 import json
 import shutil
-import yaml
 from dotenv import load_dotenv
 from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections as enrich_jf_collections, download_posters as download_jf_posters
 from plex_library import fetch_plex_items, enrich_media_with_collections as enrich_plex_collections, download_posters as download_plex_posters
@@ -12,15 +11,18 @@ CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
 
 def load_config():
     load_dotenv(os.path.join(CONFIG_DIR, ".env"))
-    with open(os.path.join(CONFIG_DIR, "config.yaml")) as f:
-        config = yaml.safe_load(f)
-    config["server_name"] = os.getenv("SERVER_NAME", "Media Library")
-    config["jellyfin"]["url"] = os.getenv("JELLYFIN_URL", config["jellyfin"].get("url"))
-    config["jellyfin"]["api_key"] = os.getenv("JELLYFIN_API_KEY", config["jellyfin"].get("api_key"))
-    config["jellyfin"]["user_id"] = os.getenv("JELLYFIN_USER_ID", config["jellyfin"].get("user_id"))
-    config["plex"]["url"] = os.getenv("PLEX_URL", config["plex"].get("url"))
-    config["plex"]["token"] = os.getenv("PLEX_TOKEN", config["plex"].get("token"))
-    return config
+    return {
+        "server_name": os.getenv("SERVER_NAME", "Media Library"),
+        "jellyfin": {
+            "url": os.getenv("JELLYFIN_URL"),
+            "api_key": os.getenv("JELLYFIN_API_KEY"),
+            "user_id": os.getenv("JELLYFIN_USER_ID"),
+        },
+        "plex": {
+            "url": os.getenv("PLEX_URL"),
+            "token": os.getenv("PLEX_TOKEN"),
+        }
+    }
 
 
 def normalize(s):
