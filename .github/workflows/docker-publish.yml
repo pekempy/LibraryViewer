@@ -3,7 +3,7 @@ name: Publish Docker image
 on:
   push:
     tags:
-      - 'v*' # Trigger only on version tags like v1.0.0
+      - 'v*' 
 
 jobs:
   docker:
@@ -27,7 +27,7 @@ jobs:
         id: vars
         run: |
           echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
-          echo "image=ghcr.io/${{ github.repository }}" >> "$GITHUB_OUTPUT"
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
 
       - name: Build Docker image
         run: |
