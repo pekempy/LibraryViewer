@@ -11,6 +11,7 @@ RUN chmod +x /start.sh
 FROM nginx:alpine
 COPY --from=base /app /app
 COPY --from=base /start.sh /start.sh
+COPY templates/loading.html /usr/share/nginx/html/index.html
 
 RUN apk add --no-cache python3 py3-pip bash curl && pip install --break-system-packages -r /app/requirements.txt
 RUN mkdir -p /run/nginx
