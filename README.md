@@ -19,6 +19,8 @@ JELLYFIN_USER_ID=your_jellyfin_user_id
 
 PLEX_URL=http://your-plex-host:32400
 PLEX_TOKEN=your_plex_token
+PLEX_MOVIE_LIBRARY=Films
+PLEX_TV_LIBRARY=TV shows
 
 JELLYFIN_ENABLED=true
 PLEX_ENABLED=true
