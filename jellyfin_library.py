@@ -1,7 +1,7 @@
 import os
 import requests
 import shutil
-from tqdm import tqdm
+from datetime import datetime
 from media_item import MediaItem
 
 JELLYFIN_HEADERS = lambda token: {
@@ -61,8 +61,15 @@ def fetch_jellyfin_items(config):
                 })
                 all_items[member["Id"]] = member
 
-    items = []
-    for item in tqdm(all_items.values(), desc="📦 Processing Items", unit="item"):
+    items_out = []
+    items_list = list(all_items.values())
+    total = len(items_list)
+
+    for idx, item in enumerate(items_list, 1):
+        if idx % max(1, total // 10) == 0 or idx == total:
+            percent = int((idx / total) * 100)
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 📦 Processing Items: {idx}/{total} ({percent}%)")
+
         if not item.get("ImageTags"):
             continue
         image_tag = next(iter(item["ImageTags"].values()), None)
@@ -99,9 +106,9 @@ def fetch_jellyfin_items(config):
         directors = [person["Name"] for person in credits if person.get("Type") == "Director"]
         media = item.get("MediaSources", [])
         media_item = MediaItem.from_jellyfin(item, image_url, size, season_count, episode_count, directors, media)
-        items.append(media_item.to_dict())
+        items_out.append(media_item.to_dict())
 
-    return items
+    return items_out
 
 def enrich_media_with_collections(items, config):
     base_url = config["jellyfin"]["url"].rstrip("/")

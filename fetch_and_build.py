@@ -3,6 +3,7 @@ import os
 import json
 import shutil
 import time
+from PIL import Image
 from dotenv import load_dotenv
 from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections as enrich_jf_collections, download_posters as download_jf_posters
 from plex_library import fetch_plex_items, enrich_media_with_collections as enrich_plex_collections, download_posters as download_plex_posters
@@ -126,6 +127,20 @@ def render_site(all_items, config):
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             shutil.copy2(src_path, dest_path)
 
+def optimise_posters():
+    poster_dir = os.path.join("output", "posters")
+    if not os.path.isdir(poster_dir):
+        return
+
+    for fname in os.listdir(poster_dir):
+        path = os.path.join(poster_dir, fname)
+        try:
+            if os.path.isfile(path) and fname.lower().endswith((".jpg", ".jpeg", ".png")):
+                img = Image.open(path).convert("RGB")
+                img.save(path, "JPEG", optimize=True, quality=85)
+        except Exception as e:
+            log(f"❌ Failed to optimize {fname}: {e}")
+
 def log_progress(index, total, label):
     percent = int((index / total) * 100)
     if percent % 10 == 0 and (index % max(1, total // 10)) == 0:
@@ -199,6 +214,7 @@ def main():
                 except Exception:
                     continue
 
+    optimise_posters()
     render_site(all_items, config)
 
     with open(os.path.join(OUTPUT_DIR, "media.json"), "w", encoding="utf-8") as f:

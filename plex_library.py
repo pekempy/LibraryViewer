@@ -1,7 +1,7 @@
 import os
 import requests
 import shutil
-from tqdm import tqdm
+from datetime import datetime
 from media_item import MediaItem
 
 POSTER_DIR = "output/posters"
@@ -100,6 +100,7 @@ def enrich_media_with_collections(items, config):
 
     return list(item_lookup.values())
 
+
 def download_posters(items, config):
     print("🖼️  Downloading Plex posters...")
     base_url = config["plex"]["url"].rstrip("/")
@@ -110,7 +111,12 @@ def download_posters(items, config):
 
     os.makedirs(POSTER_DIR, exist_ok=True)
 
-    for item in tqdm(items, desc="⬇️  Posters"):
+    total = len(items)
+    for idx, item in enumerate(items, 1):
+        if idx % max(1, total // 10) == 0 or idx == total:
+            percent = int((idx / total) * 100)
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] ⬇️  Posters: {idx}/{total} ({percent}%)")
+
         image_url = item.get("image_url")
         if not image_url:
             continue
