@@ -2,6 +2,7 @@
 
 Generate a browsable static HTML site from your Jellyfin and/or Plex library metadata.
 
+![Preview](https://i.imgur.com/LoicSad.png)
 ---
 
 ## 🧾 Requirements
