@@ -190,6 +190,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   function createCard(item) {
     const card = document.createElement("div");
+    const displayedGenres = item.genres.slice(0, 4);
+    const extraGenres = item.genres.length > 4;
     card.dataset.id = item.id;
     card.className = `card clickable ${
       item.type === "movie" ? "movie" : "show"
@@ -212,6 +214,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       const char = words[index]?.[0]?.toUpperCase() || "#";
       return /^[A-Z]$/.test(char) ? char : "#";
     })();
+
+    const genreBadges = displayedGenres
+      .map(
+        (genre) =>
+          `<span class="badge genre-${getGenreSlug(genre)}">${genre}</span>`
+      )
+      .join("") +
+      (extraGenres
+        ? `<span class="badge" style="background-color: #6a6a6a; color: #fff;">...</span>`
+        : "");
 
     let anchor = "";
     const typeKey = item.type === "movie" ? "movies" : "shows";
@@ -248,26 +260,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
       </div>
       <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
-        ${item.genres
-          .map(
-            (genre) =>
-              `<span class="badge genre-${getGenreSlug(genre)}">${genre}</span>`
-          )
-          .join("")}
+        ${genreBadges}
       </p>
       <div class="collection-buttons">
         ${(item.plex_collections || [])
           .map(
             (c) =>
-              `<button class="collection-btn plex" data-collection-id="${getGenreSlug(
+              `<button class="collection-btn plex" data-collection-id="plex-${getGenreSlug(
                 c
-              )}" style="background-color: orange;">${c}</button>`
+              )}" style="background-color: orange; color: black;">${c}</button>`
           )
           .join("")}
         ${(item.jellyfin_collections || [])
           .map(
             (c) =>
-              `<button class="collection-btn jellyfin" data-collection-id="${getGenreSlug(
+              `<button class="collection-btn jellyfin" data-collection-id="jellyfin-${getGenreSlug(
                 c
               )}" style="background-color: purple;">${c}</button>`
           )

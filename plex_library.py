@@ -70,7 +70,7 @@ def fetch_plex_items(config):
             collections = [c["tag"] for c in item.get("Collection", [])] if "Collection" in item else []
             genres = [g["tag"] for g in item.get("Genre", [])] if "Genre" in item else []
             media_item = MediaItem.from_plex(item, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
-            media_item.collections = collections
+            media_item.plex_collections = collections            
             result.append(media_item)
 
             updated_at = int(item.get("updatedAt", 0))
@@ -94,22 +94,21 @@ def fetch_plex_items(config):
             if not seasons:
                 continue
 
-            # Find the first episode to get file path and size
-            first_season = seasons[0]
-            season_id = first_season["ratingKey"]
-            episodes_url = f"{base_url}/library/metadata/{season_id}/children"
-            episodes_resp = requests.get(episodes_url, headers=headers)
-            episodes = episodes_resp.json().get("MediaContainer", {}).get("Metadata", [])
+            total_size = 0
 
-            if not episodes:
-                continue
+            for season in seasons:
+                season_id = season["ratingKey"]
+                episodes_url = f"{base_url}/library/metadata/{season_id}/children"
+                episodes_resp = requests.get(episodes_url, headers=headers)
+                episodes = episodes_resp.json().get("MediaContainer", {}).get("Metadata", [])
 
-            episode = episodes[0]
-            media = episode.get("Media", [])
-            if not media or "Part" not in media[0]:
-                continue
+                for episode in episodes:
+                    media = episode.get("Media", [])
+                    if media and "Part" in media[0]:
+                        part = media[0]["Part"][0]
+                        total_size += part.get("size", 0)
 
-            size = media[0]["Part"][0].get("size")
+            size = total_size
             directors = [d["tag"] for d in show.get("Director", [])] if "Director" in show else []
             detail_url = f"{base_url}/library/metadata/{show_id}"
             detail_resp = requests.get(detail_url, headers=headers)
