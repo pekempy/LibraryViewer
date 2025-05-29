@@ -2,6 +2,7 @@ import re
 import os
 import json
 import shutil
+import time
 from dotenv import load_dotenv
 from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections as enrich_jf_collections, download_posters as download_jf_posters
 from plex_library import fetch_plex_items, enrich_media_with_collections as enrich_plex_collections, download_posters as download_plex_posters
@@ -9,6 +10,9 @@ from jinja2 import Environment, FileSystemLoader
 
 CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
 OUTPUT_DIR = os.path.join(CONFIG_DIR, "output")
+
+def log(msg):
+    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
 def load_config():
     load_dotenv(os.path.join(CONFIG_DIR, ".env"))
@@ -87,7 +91,7 @@ def merge_items(jellyfin_items, plex_items):
     return list(combined.values())
 
 def render_site(all_items, config):
-    print("🛠️  Rendering site...")
+    log("🛠️  Rendering site...")
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs("output", exist_ok=True)
 
@@ -96,9 +100,9 @@ def render_site(all_items, config):
     genres = sorted(set(g for item in all_items for g in item.get("genres", [])))
     years = sorted(set(i["year"] for i in all_items if i.get("year")), reverse=True)
 
-    print(f"🎬 Total movies passed to template: {len(movies)}")
-    print(f"📺 Total shows passed to template: {len(shows)}")
-    print("🧩 Rendering HTML...")
+    log(f"🎬 Total movies passed to template: {len(movies)}")
+    log(f"📺 Total shows passed to template: {len(shows)}")
+    log("🧩 Rendering HTML...")
     tmpl = env.get_template("library.html")
     html = tmpl.render(
         movies=movies,
@@ -122,6 +126,11 @@ def render_site(all_items, config):
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             shutil.copy2(src_path, dest_path)
 
+def log_progress(index, total, label):
+    percent = int((index / total) * 100)
+    if percent % 10 == 0 and (index % max(1, total // 10)) == 0:
+        log(f"{label}: {index}/{total} ({percent}%)")
+
 def main():
     config = load_config()
     os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -134,19 +143,41 @@ def main():
 
     if jellyfin_enabled:
         jellyfin_items = fetch_jellyfin_items(config)
-        enrich_jf_collections(jellyfin_items, config)
-        for item in jellyfin_items:
+        log(f"Fetched {len(jellyfin_items)} Jellyfin items")
+
+        total = len(jellyfin_items)
+        for idx, item in enumerate(jellyfin_items, 1):
+            log_progress(idx, total, "🎯 Enriching Jellyfin")
+            enrich_jf_collections([item], config)
+
+        for idx, item in enumerate(jellyfin_items, 1):
             item["source"] = "jellyfin"
-        download_jf_posters(jellyfin_items)
+
+        total = len(jellyfin_items)
+        for idx, item in enumerate(jellyfin_items, 1):
+            log_progress(idx, total, "⬇️ Downloading Jellyfin posters")
+            download_jf_posters([item])
+
         with open(os.path.join(OUTPUT_DIR, "media-jf.json"), "w", encoding="utf-8") as f:
             json.dump({"jellyfin": jellyfin_items}, f, indent=2)
 
     if plex_enabled:
         plex_items = fetch_plex_items(config)
-        enrich_plex_collections(plex_items, config)
-        for item in plex_items:
+        log(f"Fetched {len(plex_items)} Plex items")
+
+        total = len(plex_items)
+        for idx, item in enumerate(plex_items, 1):
+            log_progress(idx, total, "🎯 Enriching Plex")
+            enrich_plex_collections([item], config)
+
+        for idx, item in enumerate(plex_items, 1):
             item["source"] = "plex"
-        download_plex_posters(plex_items, config)
+
+        total = len(plex_items)
+        for idx, item in enumerate(plex_items, 1):
+            log_progress(idx, total, "⬇️ Downloading Plex posters")
+            download_plex_posters([item], config)
+
         with open(os.path.join(OUTPUT_DIR, "media-plex.json"), "w", encoding="utf-8") as f:
             json.dump({"plex": plex_items}, f, indent=2)
 
