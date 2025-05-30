@@ -544,3 +544,10 @@ nav a:hover,
     font-size: 0.7rem;
   }
 }
+.file-path {
+  font-size: 0.65rem;
+  color: #888;
+  margin-top: 0.25em;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

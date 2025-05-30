@@ -1,6 +1,7 @@
 import os
 import requests
 from media_item import MediaItem
+from utils import extract_folder_and_filename
 
 PLEX_HEADERS = lambda token: {
     "Accept": "application/json",
@@ -70,7 +71,12 @@ def fetch_plex_items(config):
             collections = [c["tag"] for c in item.get("Collection", [])] if "Collection" in item else []
             genres = [g["tag"] for g in item.get("Genre", [])] if "Genre" in item else []
             media_item = MediaItem.from_plex(item, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
+            if media_item.type == "movie" and media_item.file_path:
+                part_file = media[0]["Part"][0].get("file")
+                if part_file:
+                    media_item.file_path = extract_folder_and_filename(part_file)
             media_item.plex_collections = collections            
+        
             result.append(media_item)
 
             updated_at = int(item.get("updatedAt", 0))

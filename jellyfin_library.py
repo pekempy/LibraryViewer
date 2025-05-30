@@ -3,6 +3,7 @@ import requests
 import shutil
 from datetime import datetime
 from media_item import MediaItem
+from utils import extract_folder_and_filename
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -27,7 +28,6 @@ def download_poster(base_url, key, tag, token):
         print(f"❌ Failed to download poster for {key}: {e}")
 
 def fetch_jellyfin_items(config):
-    print("📡 Fetching items from Jellyfin...")
     base_url = config["jellyfin"]["url"].rstrip("/")
     token = config["jellyfin"]["api_key"]
     user_id = config["jellyfin"]["user_id"]
@@ -36,6 +36,7 @@ def fetch_jellyfin_items(config):
     all_items = []
 
     lib_resp = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
+
     libraries = lib_resp.json().get("Items", [])
 
     for lib in libraries:
@@ -50,8 +51,8 @@ def fetch_jellyfin_items(config):
             "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems",
             "ParentId": lib_id
         }
-
         response = requests.get(item_url, headers=headers, params=params)
+
         items = response.json().get("Items", [])
 
         for item in items:
@@ -99,6 +100,12 @@ def fetch_jellyfin_items(config):
                 item, image_url, size, season_count, episode_count, directors, used_media,
                 collections=collections, genres=genres
             )
+            if media_item.type.lower() == "movie":
+                part = used_media[0] if used_media else None
+                part_path = part.get("Path") if part else None
+                if part_path:
+                    media_item.file_path = extract_folder_and_filename(part_path)
+
 
             media_item.jellyfin_collections = collections
             poster_filename = f"{item_id}.jpg"
@@ -155,6 +162,13 @@ def fetch_jellyfin_items(config):
                 collections=collections, genres=genres
             )
             media_item.jellyfin_collections = collections
+
+            if media_item.type.lower() == "movie":
+                part = used_media[0] if used_media else None
+                part_path = part.get("Path") if part else None
+                if part_path:
+                    media_item.file_path = extract_folder_and_filename(part_path)
+
 
             poster_filename = f"{item_id}.jpg"
             if should_download_poster(item_id):

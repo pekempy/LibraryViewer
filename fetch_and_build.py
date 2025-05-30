@@ -39,7 +39,15 @@ def normalize(s):
     return re.sub(r"\s+", " ", s)
 
 def get_dedupe_key(item):
-    return item.get("file_path", "").replace("\\", "/").lower()
+    path = item.get("file_path", "").replace("\\", "/").lower()
+    if item.get("type", "").lower() in ["series", "show"]:
+        # Keep only the base show folder
+        parts = path.split("/")
+        for i in range(len(parts) - 1, 0, -1):
+            if parts[i].lower().startswith("season"):
+                return "/".join(parts[:i]).rstrip("/")
+        return "/".join(parts[:-1]).rstrip("/")
+    return path
 
 def merge_items(jellyfin_items, plex_items):
     def merge_dict(a, b):
@@ -137,35 +145,38 @@ def main():
     plex_items = []
 
     if jellyfin_enabled:
+        log(f"Fetching items from Jellyfin, this may take a while... ")
         jellyfin_items = fetch_jellyfin_items(config)
         log(f"Fetched {len(jellyfin_items)} Jellyfin items")
 
     if plex_enabled:
+        log(f"Fetching items from Plex, this may take a while... ")
         plex_items = fetch_plex_items(config)
         log(f"Fetched {len(plex_items)} Plex items")
 
-
-
     plex_items = [i.to_dict() if hasattr(i, "to_dict") else i for i in plex_items]
     jellyfin_items = [i.to_dict() if hasattr(i, "to_dict") else i for i in jellyfin_items]
+    log(f"Merging Jellyfin & Plex libraries (if necessary)")
     all_items = merge_items(jellyfin_items, plex_items)
 
+    log(f"Removing unused posters")
     # # Remove unused posters
-    # used_posters = {
-    #     item.get("poster_path", "").replace("\\", "/")
-    #     for item in all_items
-    #     if item.get("poster_path")
-    # }
-    # poster_dir = os.path.join("output", "posters")
-    # if os.path.isdir(poster_dir):
-    #     for fname in os.listdir(poster_dir):
-    #         rel_path = f"posters/{fname}"
-    #         if rel_path not in used_posters:
-    #             try:
-    #                 os.remove(os.path.join(poster_dir, fname))
-    #             except Exception:
-    #                 continue
-
+    used_posters = {
+        item.get("poster_path", "").replace("\\", "/")
+        for item in all_items
+        if item.get("poster_path")
+    }
+    poster_dir = os.path.join("output", "posters")
+    if os.path.isdir(poster_dir):
+        for fname in os.listdir(poster_dir):
+            rel_path = f"posters/{fname}"
+            if rel_path not in used_posters:
+                try:
+                    os.remove(os.path.join(poster_dir, fname))
+                except Exception:
+                    continue
+    
+    log(f"Optimising posters, this WILL take a while... ")
     optimise_posters()
     render_site(all_items, config)
 

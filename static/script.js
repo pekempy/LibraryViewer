@@ -243,6 +243,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       ${anchor}
       <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
       <h3>${item.title}</h3>
+      <pre class="file-path">${item.file_path || ""}</pre>
       <div class="card-meta">
         <div class="meta-item"><span class="material-icons">calendar_today</span> <span class="meta-text">${
           item.year || "—"
