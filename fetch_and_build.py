@@ -39,15 +39,7 @@ def normalize(s):
     return re.sub(r"\s+", " ", s)
 
 def get_dedupe_key(item):
-    path = item.get("file_path", "").replace("\\", "/").lower()
-    if item.get("type", "").lower() in ["series", "show"]:
-        # Keep only the base show folder
-        parts = path.split("/")
-        for i in range(len(parts) - 1, 0, -1):
-            if parts[i].lower().startswith("season"):
-                return "/".join(parts[:i]).rstrip("/")
-        return "/".join(parts[:-1]).rstrip("/")
-    return path
+    return item.get("file_path", "").replace("\\", "/").lower()
 
 def merge_items(jellyfin_items, plex_items):
     def merge_dict(a, b):
@@ -177,7 +169,7 @@ def main():
                     continue
     
     log(f"Optimising posters, this WILL take a while... ")
-    optimise_posters()
+    #optimise_posters()
     render_site(all_items, config)
 
     with open(os.path.join(OUTPUT_DIR, "media.json"), "w", encoding="utf-8") as f:

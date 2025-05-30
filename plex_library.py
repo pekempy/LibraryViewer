@@ -98,21 +98,30 @@ def fetch_plex_items(config):
             seasons = seasons_resp.json().get("MediaContainer", {}).get("Metadata", [])
 
             if not seasons:
+                
                 continue
 
             total_size = 0
+            all_episodes = []
 
             for season in seasons:
                 season_id = season["ratingKey"]
                 episodes_url = f"{base_url}/library/metadata/{season_id}/children"
                 episodes_resp = requests.get(episodes_url, headers=headers)
                 episodes = episodes_resp.json().get("MediaContainer", {}).get("Metadata", [])
+                all_episodes.extend(episodes)
 
-                for episode in episodes:
-                    media = episode.get("Media", [])
-                    if media and "Part" in media[0]:
-                        part = media[0]["Part"][0]
-                        total_size += part.get("size", 0)
+            all_episodes.sort(key=lambda ep: (ep.get("parentIndex", 0), ep.get("index", 0)))
+            first_path = None
+            total_size = 0
+
+            for episode in all_episodes:
+                media = episode.get("Media", [])
+                if media and "Part" in media[0]:
+                    part = media[0]["Part"][0]
+                    total_size += part.get("size", 0)
+                    if not first_path and part.get("file"):
+                        first_path = part["file"]
 
             size = total_size
             directors = [d["tag"] for d in show.get("Director", [])] if "Director" in show else []
@@ -121,7 +130,10 @@ def fetch_plex_items(config):
             detailed_show = detail_resp.json().get("MediaContainer", {}).get("Metadata", [])[0]
             collections = [c["tag"] for c in detailed_show.get("Collection", [])] if "Collection" in detailed_show else []
             genres = [g["tag"] for g in detailed_show.get("Genre", [])] if "Genre" in detailed_show else []
-            media_item = MediaItem.from_plex(show, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
+            media_item = MediaItem.from_plex(show, base_url, size, directors, [], collections=collections, genres=genres, plex_token=token)
+            if first_path:
+                media_item.file_path = extract_folder_and_filename(first_path, depth=2)
+
             media_item.season_count = show.get("childCount")
             media_item.episode_count = show.get("leafCount")
             result.append(media_item)
