@@ -5,7 +5,7 @@ import shutil
 import time
 from PIL import Image
 from dotenv import load_dotenv
-from jellyfin_library import fetch_jellyfin_items, enrich_media_with_collections as enrich_jf_collections, download_posters as download_jf_posters
+from jellyfin_library import fetch_jellyfin_items
 from plex_library import fetch_plex_items
 from jinja2 import Environment, FileSystemLoader
 
@@ -76,8 +76,7 @@ def render_site(all_items, config):
     log("🛠️  Rendering site...")
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs("output", exist_ok=True)
-
-    movies = [i for i in all_items if i["type"] == "Movie"]
+    movies = [i for i in all_items if i["type"].lower() == "movie"]
     shows = [i for i in all_items if i["type"].lower() in ["show", "series"]]
     genres = sorted(set(g for item in all_items for g in item.get("genres", [])))
     years = sorted(set(i["year"] for i in all_items if i.get("year")), reverse=True)
@@ -140,22 +139,6 @@ def main():
     if jellyfin_enabled:
         jellyfin_items = fetch_jellyfin_items(config)
         log(f"Fetched {len(jellyfin_items)} Jellyfin items")
-
-        total = len(jellyfin_items)
-        for idx, item in enumerate(jellyfin_items, 1):
-            log_progress(idx, total, "🎯 Enriching Jellyfin")
-            enrich_jf_collections([item], config)
-
-        for idx, item in enumerate(jellyfin_items, 1):
-            item["source"] = "jellyfin"
-
-        total = len(jellyfin_items)
-        for idx, item in enumerate(jellyfin_items, 1):
-            log_progress(idx, total, "⬇️ Downloading Jellyfin posters")
-            download_jf_posters([item])
-
-        with open(os.path.join(OUTPUT_DIR, "media-jf.json"), "w", encoding="utf-8") as f:
-            json.dump({"jellyfin": jellyfin_items}, f, indent=2)
 
     if plex_enabled:
         plex_items = fetch_plex_items(config)

@@ -403,12 +403,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   const raw = await res.json();
 
   const all = raw.all || [];
-  const movies = all.filter((item) => item.type === "movie");
+  const movies = all.filter((item) => item.type?.toLowerCase() === "movie");
   const shows = all.filter((item) =>
-    ["Show", "Series", "show"].includes(item.type)
+    ["show", "series"].includes(item.type?.toLowerCase())
   );
   const data = [...movies, ...shows];
   data.forEach((item) => {
+    item.type = item.type?.toLowerCase();
     const plexSlugs = (item.plex_collections || []).map(c => `plex-${getGenreSlug(c)}`);
     const jfSlugs = (item.jellyfin_collections || []).map(c => `jellyfin-${getGenreSlug(c)}`);
     item.collectionSlugs = [...plexSlugs, ...jfSlugs];
@@ -427,9 +428,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     .sort((a, b) => getSortTitle(a.title).localeCompare(getSortTitle(b.title)));
 
   const showItems = data
-    .filter((item) => ["Show", "Series", "show"].includes(item.type));
+    .filter((item) => ["show", "series"].includes(item.type));
     
   movieItems.forEach((item) => {
+    console.log("🎞️ Processing movie:", item.title, item.poster_path);
     if (!item.poster_path) {
       console.warn("❌ Skipping movie with no poster_path:", item.title);
       return;

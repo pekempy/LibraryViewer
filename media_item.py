@@ -58,7 +58,7 @@ class MediaItem:
         return os.path.basename(full_path)
 
     @classmethod
-    def from_jellyfin(cls, item, image_url, size, season_count, episode_count, directors, media):
+    def from_jellyfin(cls, item, image_url, size, season_count, episode_count, directors, media, collections=None, genres=None):        
         file_path = media[0].get("Path", "") if media else ""
         file_size_bytes = media[0].get("Size", 0) if media else 0
         relative_path = cls.find_relevant_path(file_path, item.get("Name", ""))
@@ -68,7 +68,7 @@ class MediaItem:
             key=item["Id"],
             title=item.get("Name"),
             year=item.get("ProductionYear"),
-            genres=item.get("Genres", []),
+            genres=genres or [],
             type=item.get("Type"),
             id=item["Id"],
             image_url=image_url,
@@ -83,7 +83,9 @@ class MediaItem:
             runtime_ticks=item.get("RunTimeTicks"),
             season_count=season_count,
             episode_count=episode_count,
+            jellyfin_collections=collections or [],
         )
+
 
     @classmethod
     def from_plex(cls, item, base_url, size, directors, media, collections=None, genres=None, plex_token=None):

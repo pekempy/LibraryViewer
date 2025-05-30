@@ -11,160 +11,156 @@ JELLYFIN_HEADERS = lambda token: {
 
 POSTER_DIR = "output/posters"
 
+def should_download_poster(key):
+    path = os.path.join(POSTER_DIR, f"{key}.jpg")
+    return not os.path.exists(path)
+
+def download_poster(base_url, key, tag, token):
+    poster_url = f"{base_url}/Items/{key}/Images/Primary?tag={tag}&quality=90"
+    poster_path = os.path.join(POSTER_DIR, f"{key}.jpg")
+    os.makedirs(POSTER_DIR, exist_ok=True)
+    try:
+        with requests.get(poster_url, stream=True, timeout=10) as r:
+            with open(poster_path, "wb") as f:
+                shutil.copyfileobj(r.raw, f)
+    except Exception as e:
+        print(f"❌ Failed to download poster for {key}: {e}")
+
 def fetch_jellyfin_items(config):
     print("📡 Fetching items from Jellyfin...")
     base_url = config["jellyfin"]["url"].rstrip("/")
-    api_key = config["jellyfin"]["api_key"]
+    token = config["jellyfin"]["api_key"]
     user_id = config["jellyfin"]["user_id"]
-    headers = JELLYFIN_HEADERS(api_key)
-    all_items = {}
+    headers = JELLYFIN_HEADERS(token)
 
-    url = f"{base_url}/Items"
-    params = {
-        "IncludeItemTypes": "Movie,Series",
-        "Recursive": "true",
-        "Fields": "MediaSources,Genres,ProductionYear,ImageTags,Overview,CommunityRating,OfficialRating,RunTimeTicks",
-    }
-    response = requests.get(url, headers=headers, params=params)
-    try:
+    all_items = []
+
+    lib_resp = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
+    libraries = lib_resp.json().get("Items", [])
+
+    for lib in libraries:
+        if lib.get("CollectionType") not in ["movies", "tvshows"]:
+            continue
+
+        lib_id = lib["Id"]
+        item_url = f"{base_url}/Users/{user_id}/Items"
+        params = {
+            "Recursive": "true",
+            "IncludeItemTypes": "Movie,Series",
+            "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems",
+            "ParentId": lib_id
+        }
+
+        response = requests.get(item_url, headers=headers, params=params)
         items = response.json().get("Items", [])
+
         for item in items:
-            all_items[item["Id"]] = item
-    except Exception:
-        return []
+            item_id = item["Id"]
+            if not item.get("ImageTags"):
+                continue
 
-    coll_resp = requests.get(
-        f"{base_url}/Users/{user_id}/Items?IncludeItemTypes=BoxSet", headers=headers
-    )
-    collections = coll_resp.json().get("Items", [])
+            image_tag = next(iter(item["ImageTags"].values()), None)
+            image_url = f"{base_url}/Items/{item_id}/Images/Primary?tag={image_tag}&quality=90"
 
-    for collection in collections:
-        collection_id = collection["Id"]
-        collection_name = collection.get("Name")
-        members_resp = requests.get(
-            f"{base_url}/Items/{collection_id}/Items?Recursive=true", headers=headers
-        )
-        try:
-            member_items = members_resp.json().get("Items", [])
-        except Exception:
-            continue
-        for member in member_items:
-            if member["Id"] in all_items:
-                all_items[member["Id"]].setdefault("collections", []).append({
-                    "id": collection_id,
-                    "name": collection_name
-                })
-            else:
-                member.setdefault("collections", []).append({
-                    "id": collection_id,
-                    "name": collection_name
-                })
-                all_items[member["Id"]] = member
+            size = 0
+            season_count = None
+            episode_count = None
+            used_media = []
 
-    items_out = []
-    items_list = list(all_items.values())
-    total = len(items_list)
+            if item["Type"] == "Series":    
+                ep_url = f"{base_url}/Shows/{item_id}/Episodes"
+                ep_params = {"Fields": "MediaSources,ParentIndexNumber", "Recursive": "true", "Limit": 9999}
+                ep_resp = requests.get(ep_url, headers=headers, params=ep_params)
+                episodes = ep_resp.json().get("Items", [])
 
-    for idx, item in enumerate(items_list, 1):
-        if idx % max(1, total // 10) == 0 or idx == total:
-            percent = int((idx / total) * 100)
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] 📦 Processing Items: {idx}/{total} ({percent}%)")
-
-        if not item.get("ImageTags"):
-            continue
-        image_tag = next(iter(item["ImageTags"].values()), None)
-        image_url = f"{base_url}/Items/{item['Id']}/Images/Primary?tag={image_tag}&quality=90"
-
-        size = 0
-        season_count = None
-        episode_count = None
-        if item["Type"] == "Series":
-            ep_resp = requests.get(
-                f"{base_url}/Shows/{item['Id']}/Episodes?Fields=MediaSources,ParentIndexNumber",
-                headers=headers,
-            )
-            try:
-                episodes = ep_resp.json()
                 season_numbers = set()
-                for ep in episodes.get("Items", []):
-                    size += ep.get("MediaSources", [{}])[0].get("Size", 0)
+                for ep in episodes:
+                    media_source = ep.get("MediaSources", [{}])[0]
+                    size += media_source.get("Size", 0)
+                    if not used_media and media_source.get("Path"):
+                        used_media = [media_source]
                     if "ParentIndexNumber" in ep:
                         season_numbers.add(ep["ParentIndexNumber"])
                 season_count = len(season_numbers)
-                episode_count = len(episodes.get("Items", []))
-            except Exception:
-                continue
-        else:
-            size = item.get("MediaSources", [{}])[0].get("Size", 0)
+                episode_count = len(episodes)
+            else:
+                used_media = item.get("MediaSources", [])
+                size = used_media[0].get("Size", 0) if used_media else 0
 
-        cred_resp = requests.get(f"{base_url}/Items/{item['Id']}/Credits", headers=headers)
-        try:
-            credits = cred_resp.json()
-        except Exception:
-            credits = []
+            cred_url = f"{base_url}/Items/{item_id}/Credits"
+            cred_resp = requests.get(cred_url, headers=headers)
+            credits = cred_resp.json() if cred_resp.status_code == 200 else []
+            directors = [c["Name"] for c in credits if c.get("Type") == "Director"]
 
-        directors = [person["Name"] for person in credits if person.get("Type") == "Director"]
-        media = item.get("MediaSources", [])
-        media_item = MediaItem.from_jellyfin(item, image_url, size, season_count, episode_count, directors, media)
-        items_out.append(media_item.to_dict())
+            genres = item.get("Genres")
+            collections = [c["Name"] for c in item.get("CollectionItems", [])]
 
-    return items_out
-
-def enrich_media_with_collections(items, config):
-    base_url = config["jellyfin"]["url"].rstrip("/")
-    api_key = config["jellyfin"]["api_key"]
-    user_id = config["jellyfin"]["user_id"]
-    headers = JELLYFIN_HEADERS(api_key)
-
-    item_map = {item["id"]: item for item in items}
-
-    libs = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
-    libraries = libs.json().get("Items", [])
-    movie_libraries = [lib for lib in libraries if lib.get("CollectionType") == "movies"]
-
-    for lib in movie_libraries:
-        lib_id = lib["Id"]
-        params = {
-            "ParentId": lib_id,
-            "IncludeItemTypes": "BoxSet",
-            "Recursive": "true"
-        }
-        coll_resp = requests.get(f"{base_url}/Items", headers=headers, params=params)
-        if coll_resp.status_code != 200:
-            continue
-
-        for collection in coll_resp.json().get("Items", []):
-            collection_id = collection["Id"]
-            collection_name = collection["Name"]
-            members_resp = requests.get(
-                f"{base_url}/Items", headers=headers,
-                params={"ParentId": collection_id, "Recursive": "true"}
+            media_item = MediaItem.from_jellyfin(
+                item, image_url, size, season_count, episode_count, directors, used_media,
+                collections=collections, genres=genres
             )
-            if members_resp.status_code != 200:
+
+            media_item.jellyfin_collections = collections
+            poster_filename = f"{item_id}.jpg"
+            if should_download_poster(item_id):
+                download_poster(base_url, item_id, image_tag, token)
+            media_item.poster_path = f"posters/{poster_filename}"
+
+            all_items.append(media_item.to_dict())
+
+    # ───────────────────────────────────────────────
+    # 📦 Extra fetch for movies in Box Sets
+    # ───────────────────────────────────────────────
+    boxsets_url = f"{base_url}/Users/{user_id}/Items"
+    boxset_resp = requests.get(boxsets_url, headers=headers, params={
+        "IncludeItemTypes": "BoxSet",
+        "Recursive": "true"
+    })
+
+    boxsets = boxset_resp.json().get("Items", [])
+
+    for boxset in boxsets:
+        box_id = boxset["Id"]
+        items_url = f"{base_url}/Users/{user_id}/Items"
+        params = {
+            "ParentId": box_id,
+            "Recursive": "true",
+            "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems"
+        }
+        resp = requests.get(items_url, headers=headers, params=params)
+        for item in resp.json().get("Items", []):
+            if item.get("Type") != "Movie":
                 continue
 
-            for member in members_resp.json().get("Items", []):
-                member_id = member.get("Id")
-                if member_id in item_map:
-                    item = item_map[member_id]
-                    item.setdefault("collections", []).append({
-                        "id": collection_id,
-                        "name": collection_name
-                    })
-
-def download_posters(items):
-    if os.path.exists(POSTER_DIR):
-        shutil.rmtree(POSTER_DIR)
-    os.makedirs(POSTER_DIR, exist_ok=True)
-
-    for item in items:
-        ext = ".jpg"
-        poster_path = os.path.join(POSTER_DIR, f"{item['id']}{ext}")
-        if not os.path.exists(poster_path):
-            try:
-                with requests.get(item["image_url"], stream=True) as r:
-                    with open(poster_path, "wb") as f:
-                        shutil.copyfileobj(r.raw, f)
-            except:
+            item_id = item["Id"]
+            if not item.get("ImageTags"):
                 continue
-        item["poster_path"] = f"posters/{item['id']}{ext}"
+
+            image_tag = next(iter(item["ImageTags"].values()), None)
+            image_url = f"{base_url}/Items/{item_id}/Images/Primary?tag={image_tag}&quality=90"
+
+            used_media = item.get("MediaSources", [])
+            size = used_media[0].get("Size", 0) if used_media else 0
+
+            cred_url = f"{base_url}/Items/{item_id}/Credits"
+            cred_resp = requests.get(cred_url, headers=headers)
+            credits = cred_resp.json() if cred_resp.status_code == 200 else []
+            directors = [c["Name"] for c in credits if c.get("Type") == "Director"]
+
+            genres = item.get("Genres")
+            collections = [boxset["Name"]]
+
+            media_item = MediaItem.from_jellyfin(
+                item, image_url, size, None, None, directors, used_media,
+                collections=collections, genres=genres
+            )
+            media_item.jellyfin_collections = collections
+
+            poster_filename = f"{item_id}.jpg"
+            if should_download_poster(item_id):
+                download_poster(base_url, item_id, image_tag, token)
+            media_item.poster_path = f"posters/{poster_filename}"
+
+            all_items.append(media_item.to_dict())
+
+    return all_items
