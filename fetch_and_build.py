@@ -1,19 +1,14 @@
-import re
 import os
 import json
 import shutil
-import time
-from PIL import Image
 from dotenv import load_dotenv
-from jellyfin_library import fetch_jellyfin_items
-from plex_library import fetch_plex_items
 from jinja2 import Environment, FileSystemLoader
+from utils.jellyfin_library import fetch_jellyfin_items
+from utils.plex_library import fetch_plex_items
+from utils.utils import log, merge_items, optimise_posters
 
 CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
 OUTPUT_DIR = os.path.join(CONFIG_DIR, "output")
-
-def log(msg):
-    print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
 def load_config():
     load_dotenv(os.path.join(CONFIG_DIR, ".env"))
@@ -31,46 +26,6 @@ def load_config():
             "show_library_name": os.getenv("PLEX_TV_LIBRARY", "tv shows").lower(),
         }
     }
-
-def normalize(s):
-    s = re.sub(r"\s*\(\d{4}\)$", "", s)
-    s = re.sub(r"[^\w\s]", "", s).lower()
-    s = re.sub(r"\b(the|a|an)\b", "", s).strip()
-    return re.sub(r"\s+", " ", s)
-
-def get_dedupe_key(item):
-    return item.get("file_path", "").replace("\\", "/").lower()
-
-def merge_items(jellyfin_items, plex_items):
-    def merge_dict(a, b):
-        merged = dict(a)
-        for key, value in b.items():
-            if key == "source":
-                a_sources = a["source"] if isinstance(a["source"], list) else [a["source"]]
-                b_sources = b["source"] if isinstance(b["source"], list) else [b["source"]]
-                merged["source"] = sorted(set(a_sources + b_sources))
-            elif key not in merged or merged[key] in [None, "", [], {}]:
-                merged[key] = value
-            elif isinstance(value, list):
-                existing = merged.get(key, [])
-                if all(isinstance(i, dict) for i in value):
-                    merged[key] = list({json.dumps(i, sort_keys=True): i for i in existing + value}.values())
-                else:
-                    merged[key] = list(set(existing + value))
-            elif isinstance(value, dict):
-                merged[key] = merge_dict(merged.get(key, {}), value)
-        return merged
-
-    combined = {}
-    for item in jellyfin_items + plex_items:
-        item["source"] = [item["source"]] if isinstance(item["source"], str) else item["source"]
-        dedupe_key = get_dedupe_key(item)
-        if dedupe_key not in combined:
-            combined[dedupe_key] = item
-        else:
-            combined[dedupe_key] = merge_dict(combined[dedupe_key], item)
-
-    return list(combined.values())
 
 def render_site(all_items, config):
     log("🛠️  Rendering site...")
@@ -107,24 +62,6 @@ def render_site(all_items, config):
             os.makedirs(os.path.dirname(dest_path), exist_ok=True)
             shutil.copy2(src_path, dest_path)
 
-def optimise_posters():
-    poster_dir = os.path.join("output", "posters")
-    if not os.path.isdir(poster_dir):
-        return
-
-    for fname in os.listdir(poster_dir):
-        path = os.path.join(poster_dir, fname)
-        try:
-            if os.path.isfile(path) and fname.lower().endswith((".jpg", ".jpeg", ".png")):
-                img = Image.open(path).convert("RGB")
-                img.save(path, "JPEG", optimize=True, quality=85)
-        except Exception as e:
-            log(f"❌ Failed to optimize {fname}: {e}")
-
-def log_progress(index, total, label):
-    percent = int((index / total) * 100)
-    if percent % 10 == 0 and (index % max(1, total // 10)) == 0:
-        log(f"{label}: {index}/{total} ({percent}%)")
 
 def main():
     config = load_config()
@@ -152,7 +89,6 @@ def main():
     all_items = merge_items(jellyfin_items, plex_items)
 
     log(f"Removing unused posters")
-    # # Remove unused posters
     used_posters = {
         item.get("poster_path", "").replace("\\", "/")
         for item in all_items

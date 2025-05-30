@@ -34,16 +34,16 @@ class MediaItem:
         if not full_path or not title:
             return ""
 
-        def normalize(s):
+        def normalise(s):
             s = re.sub(r"[^\w\s]", "", s).lower()
             s = re.sub(r"\b(the|a|an)\b", "", s).strip()
             return re.sub(r"\s+", " ", s)
 
-        norm_title = normalize(title)
+        norm_title = normalise(title)
         parts = full_path.replace("\\", "/").split("/")
 
         for i, part in enumerate(parts):
-            norm_part = normalize(part)
+            norm_part = normalise(part)
             if norm_title in norm_part:
                 return "/".join(parts[i:])
 

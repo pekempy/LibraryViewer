@@ -2,8 +2,8 @@ import os
 import requests
 import shutil
 from datetime import datetime
-from media_item import MediaItem
-from utils import extract_folder_and_filename
+from utils.media_item import MediaItem
+from utils.utils import extract_folder_and_filename
 
 JELLYFIN_HEADERS = lambda token: {
     "X-Emby-Token": token,
@@ -80,6 +80,10 @@ def fetch_jellyfin_items(config):
                     size += media_source.get("Size", 0)
                     if not used_media and media_source.get("Path"):
                         used_media = [media_source]
+                    if used_media:
+                        path = used_media[0].get("Path")
+                        if path:
+                            media_item.file_path = extract_folder_and_filename(path, depth=2)
                     if "ParentIndexNumber" in ep:
                         season_numbers.add(ep["ParentIndexNumber"])
                 season_count = len(season_numbers)

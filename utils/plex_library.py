@@ -1,7 +1,7 @@
 import os
 import requests
-from media_item import MediaItem
-from utils import extract_folder_and_filename
+from utils.media_item import MediaItem
+from utils.utils import extract_folder_and_filename
 
 PLEX_HEADERS = lambda token: {
     "Accept": "application/json",
@@ -127,7 +127,10 @@ def fetch_plex_items(config):
             directors = [d["tag"] for d in show.get("Director", [])] if "Director" in show else []
             detail_url = f"{base_url}/library/metadata/{show_id}"
             detail_resp = requests.get(detail_url, headers=headers)
-            detailed_show = detail_resp.json().get("MediaContainer", {}).get("Metadata", [])[0]
+            metadata_list = detail_resp.json().get("MediaContainer", {}).get("Metadata", [])
+            detailed_show = next((item for item in metadata_list if item.get("ratingKey") == show_id), None)
+            if not detailed_show:
+                continue
             collections = [c["tag"] for c in detailed_show.get("Collection", [])] if "Collection" in detailed_show else []
             genres = [g["tag"] for g in detailed_show.get("Genre", [])] if "Genre" in detailed_show else []
             media_item = MediaItem.from_plex(show, base_url, size, directors, [], collections=collections, genres=genres, plex_token=token)
