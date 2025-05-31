@@ -12,7 +12,7 @@ echo "Starting fetch_and_build loop..."
 
 while true; do
   echo "Running fetch_and_build.py at $(date)"
-  python3 /app/fetch_and_build.py
+  python3 -u /app/fetch_and_build.py
   echo "Done at $(date)"
   sleep 3600
 done &
