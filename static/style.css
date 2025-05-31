@@ -210,6 +210,20 @@ nav a:hover,
   background: #666;
 }
 
+.collection-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3em;
+}
+
+.collection-buttons .collection-btn {
+  width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Inputs & Forms */
 .md-input {
   font: inherit;
@@ -543,4 +557,11 @@ nav a:hover,
   .badge {
     font-size: 0.7rem;
   }
+}
+.file-path {
+  font-size: 0.65rem;
+  color: #888;
+  margin-top: 0.25em;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
