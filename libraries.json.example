@@ -1,0 +1,35 @@
+[
+   {
+      "name":"Movies",
+      "plex":{
+         "name":"Films",
+         "library_type":"Movies" 
+      },
+      "jellyfin":{
+         "name":"Movies",
+         "library_type":"Movies"
+      }
+   },
+   {
+      "name":"Shows",
+      "plex":{
+         "name":"TV shows",
+         "library_type":"TV"
+      },
+      "jellyfin":{
+         "name":"TV Shows",
+         "library_type":"TV"
+      }
+   },
+   {
+      "name":"YouTube",
+      "plex":{
+         "name":"YouTube",
+         "library_type":"Movies"
+      },
+      "jellyfin":{
+         "name":"YouTube",
+         "library_type":"Movies"
+      }
+   }
+]

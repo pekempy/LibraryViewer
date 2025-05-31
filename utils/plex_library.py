@@ -3,33 +3,11 @@ import requests
 from utils.media_item import MediaItem
 from utils.utils import extract_folder_and_filename, log
 
-
 def get_plex_headers(token):
     return {
         "Accept": "application/json",
         "X-Plex-Token": token
     }
-
-def get_plex_config():
-    return {
-        "url": os.getenv("PLEX_URL"),
-        "token": os.getenv("PLEX_TOKEN"),
-        "movie_library_name": os.getenv("PLEX_MOVIE_LIBRARY", "movies").lower(),
-        "show_library_name": os.getenv("PLEX_TV_LIBRARY", "tv shows").lower()
-    }
-
-def get_section_keys(config):
-    base_url = config["plex"]["url"].rstrip("/")
-    token = config["plex"]["token"]
-    headers = get_plex_headers(token)
-    sections_url = f"{base_url}/library/sections"
-    resp = requests.get(sections_url, headers=headers)
-    sections = resp.json().get("MediaContainer", {}).get("Directory", [])
-
-    movie_key = next((s["key"] for s in sections if s["title"].lower() == config["plex"]["movie_library_name"]), None)
-    show_key = next((s["key"] for s in sections if s["title"].lower() == config["plex"]["show_library_name"]), None)
-
-    return movie_key, show_key
 
 def should_download_poster(key, updated_at):
     path = f"output/posters/library_metadata_{key}.jpg"
@@ -48,24 +26,30 @@ def download_poster(base_url, key, token):
     except Exception as e:
         print(f"❌ Failed to download poster for {key}: {e}")
 
-def fetch_plex_items(config):
+def fetch_plex_items(config, library_name, library_type, display_name):
     base_url = config["plex"]["url"].rstrip("/")
     token = config["plex"]["token"]
     headers = get_plex_headers(token)
 
-    movie_key, show_key = get_section_keys(config)
-    result = []
+    sections_url = f"{base_url}/library/sections"
+    resp = requests.get(sections_url, headers=headers)
+    sections = resp.json().get("MediaContainer", {}).get("Directory", [])
+    section_key = next((s["key"] for s in sections if s["title"].lower() == library_name.lower()), None)
+    if not section_key:
+        log(f"[Plex] ❌ Could not find section for: {library_name}")
+        return []
 
-    if movie_key:
-        result.extend(fetch_plex_movies(base_url, token, headers, movie_key))
-    if show_key:
-        result.extend(fetch_plex_shows(base_url, token, headers, show_key))
+    if library_type.lower() == "movies":
+        return fetch_plex_movies(base_url, token, headers, section_key, display_name)
+    elif library_type.lower() in ["tv", "shows", "series"]:
+        return fetch_plex_shows(base_url, token, headers, section_key, display_name)
+    else:
+        log(f"[Plex] ❌ Unsupported library_type: {library_type}")
+        return []
 
-    return result
-
-def fetch_plex_movies(base_url, token, headers, movie_key):
-    log("[Plex] Fetching Movies...")
-    movie_url = f"{base_url}/library/sections/{movie_key}/all"
+def fetch_plex_movies(base_url, token, headers, section_key, library):
+    log(f"[Plex] Fetching Movies from {library}...")
+    movie_url = f"{base_url}/library/sections/{section_key}/all"
     movie_params = {"type": "1", "includeGuids": "1"}
     movie_resp = requests.get(movie_url, headers=headers, params=movie_params)
     movie_items = movie_resp.json().get("MediaContainer", {}).get("Metadata", [])
@@ -83,6 +67,7 @@ def fetch_plex_movies(base_url, token, headers, movie_key):
         genres = [g["tag"] for g in item.get("Genre", [])]
 
         media_item = MediaItem.from_plex(item, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
+        media_item.library = library
         if part_file:
             media_item.file_path = extract_folder_and_filename(part_file)
         media_item.plex_collections = collections
@@ -94,9 +79,9 @@ def fetch_plex_movies(base_url, token, headers, movie_key):
 
     return result
 
-def fetch_plex_shows(base_url, token, headers, show_key):
-    log("[Plex] Fetching TV Shows...")
-    show_url = f"{base_url}/library/sections/{show_key}/all"
+def fetch_plex_shows(base_url, token, headers, section_key, library):
+    log(f"[Plex] Fetching TV Shows from {library}...")
+    show_url = f"{base_url}/library/sections/{section_key}/all"
     show_params = {"type": "2", "includeGuids": "1"}
     show_resp = requests.get(show_url, headers=headers, params=show_params)
     show_items = show_resp.json().get("MediaContainer", {}).get("Metadata", [])
@@ -141,6 +126,7 @@ def fetch_plex_shows(base_url, token, headers, show_key):
         genres = [g["tag"] for g in detailed_show.get("Genre", [])]
 
         media_item = MediaItem.from_plex(show, base_url, total_size, directors, [], collections=collections, genres=genres, plex_token=token)
+        media_item.library = library
         if first_path:
             media_item.file_path = extract_folder_and_filename(first_path, depth=2)
 
