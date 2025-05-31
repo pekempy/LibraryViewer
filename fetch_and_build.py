@@ -8,7 +8,6 @@ from utils.utils import log, merge_items, optimise_posters, clean_unused_posters
 
 CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
 OUTPUT_DIR = os.path.join(CONFIG_DIR, "output")
-POSTER_DIR = os.path.join(OUTPUT_DIR, "posters")
 
 def load_config():
     load_dotenv(os.path.join(CONFIG_DIR, ".env"))
@@ -28,7 +27,7 @@ def load_config():
     }
 
 def render_site(all_items, config):
-    log("🛠️  Rendering site...")
+    log("Rendering site...")
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -39,7 +38,7 @@ def render_site(all_items, config):
 
     log(f"🎬 Total movies passed to template: {len(movies)}")
     log(f"📺 Total shows passed to template: {len(shows)}")
-    log("🧩 Rendering HTML...")
+    log("Rendering HTML...")
 
     template = env.get_template("library.html")
     html = template.render(
@@ -68,8 +67,8 @@ def main():
     jellyfin_items = fetch_jellyfin_items(config) if jellyfin_enabled else []
     plex_items = fetch_plex_items(config) if plex_enabled else []
 
-    log(f"Fetched {len(jellyfin_items)} Jellyfin items")
-    log(f"Fetched {len(plex_items)} Plex items")
+    log(f"[JF] Fetched {len(jellyfin_items)} items")
+    log(f"[Plex] Fetched {len(plex_items)} items")
     log("Merging Jellyfin & Plex libraries...")
 
     # Ensure all items are dicts

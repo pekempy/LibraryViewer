@@ -27,7 +27,7 @@ def download_poster(base_url, key, tag, token):
         print(f"❌ Failed to download poster for {key}: {e}")
 
 def fetch_jellyfin_movies(base_url, token, user_id, headers):
-    log("Fetching Movies from Jellyfin...")
+    log("[JF] Fetching Movies...")
     movies = []
     lib_resp = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
     libraries = lib_resp.json().get("Items", [])
@@ -82,7 +82,7 @@ def fetch_jellyfin_movies(base_url, token, user_id, headers):
     return movies
 
 def fetch_jellyfin_shows(base_url, token, user_id, headers):
-    log("Fetching TV Shows from Jellyfin...")
+    log("[JF] Fetching TV Shows...")
     shows = []
     lib_resp = requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)
     libraries = lib_resp.json().get("Items", [])
@@ -153,7 +153,7 @@ def fetch_jellyfin_shows(base_url, token, user_id, headers):
     return shows
 
 def fetch_jellyfin_boxset_movies(base_url, token, user_id, headers):
-    log("Fetching Movies from Collections in Jellyfin...")
+    log("[JF] Fetching Movies from Collections...")
     boxset_movies = []
 
     boxsets_url = f"{base_url}/Users/{user_id}/Items"

@@ -5,6 +5,10 @@ import json
 import shutil
 from PIL import Image
 
+CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
+OUTPUT_DIR = os.path.join(CONFIG_DIR, "output")
+POSTER_DIR = os.path.join(OUTPUT_DIR, "posters")
+
 def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 

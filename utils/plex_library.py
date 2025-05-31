@@ -64,7 +64,7 @@ def fetch_plex_items(config):
     return result
 
 def fetch_plex_movies(base_url, token, headers, movie_key):
-    log("Fetching Movies from Plex...")
+    log("[Plex] Fetching Movies...")
     movie_url = f"{base_url}/library/sections/{movie_key}/all"
     movie_params = {"type": "1", "includeGuids": "1"}
     movie_resp = requests.get(movie_url, headers=headers, params=movie_params)
@@ -95,7 +95,7 @@ def fetch_plex_movies(base_url, token, headers, movie_key):
     return result
 
 def fetch_plex_shows(base_url, token, headers, show_key):
-    log("Fetching TV Shows from Plex...")
+    log("[Plex] Fetching TV Shows...")
     show_url = f"{base_url}/library/sections/{show_key}/all"
     show_params = {"type": "2", "includeGuids": "1"}
     show_resp = requests.get(show_url, headers=headers, params=show_params)

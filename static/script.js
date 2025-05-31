@@ -193,9 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const displayedGenres = item.genres.slice(0, 4);
     const extraGenres = item.genres.length > 4;
     card.dataset.id = item.id;
-    card.className = `card clickable ${
-      item.type === "movie" ? "movie" : "show"
-    }`;
+    card.className = `card clickable ${item.type}`;
     card.dataset.poster = item.poster_path;
     card.dataset.title = item.title;
     card.dataset.year = item.year;
@@ -206,6 +204,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     card.dataset.runtime = item.runtime_ticks;
     card.dataset.description = item.overview || "";
     card.dataset.source = item.source;
+    card.dataset.season_count = item.season_count || 0;
+    card.dataset.episode_count = item.episode_count || 0;
+
 
     const firstChar = (() => {
       const articles = ["a", "an", "the", "and", "(", ")"];
@@ -251,12 +252,12 @@ document.addEventListener("DOMContentLoaded", async () => {
           item.size /
           (1024 * 1024 * 1024)
         ).toFixed(2)} GB</span></div>
-        ${
-          item.type === "show"
-            ? `<div class="meta-item"><span class="material-icons">view_list</span> <span class="meta-text">${
-                item.season_count || 0
-              } seasons • ${item.episode_count || 0} episodes</span></div>`
-            : ""
+        ${["show", "series"].includes(item.type) &&
+          (parseInt(card.dataset.season_count) > 0 || parseInt(card.dataset.episode_count) > 0)
+          ? `<div class="meta-item"><span class="material-icons">view_list</span> <span class="meta-text">${
+              card.dataset.season_count
+            } seasons • ${card.dataset.episode_count} episodes</span></div>`
+          : ""
         }
       </div>
       <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
@@ -315,7 +316,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     filteredCards = allCards.filter((card) => {
       const isActive =
         (activeType === "Movie" && card.classList.contains("movie")) ||
-        (activeType === "Series" && card.classList.contains("show"));
+        (activeType === "Series" && (card.classList.contains("show") || card.classList.contains("series")));
       if (!isActive) return false;
 
       const title = card.dataset.title.toLowerCase();
@@ -431,7 +432,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     .filter((item) => ["show", "series"].includes(item.type));
     
   movieItems.forEach((item) => {
-    console.log("🎞️ Processing movie:", item.title, item.poster_path);
     if (!item.poster_path) {
       console.warn("❌ Skipping movie with no poster_path:", item.title);
       return;
