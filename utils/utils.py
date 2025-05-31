@@ -1,7 +1,8 @@
-import json
 import os
 import re
 import time
+import json
+import shutil
 from PIL import Image
 
 def log(msg):
@@ -62,3 +63,32 @@ def optimise_posters():
                 img.save(path, "JPEG", optimize=True, quality=85)
         except Exception as e:
             log(f"❌ Failed to optimise {fname}: {e}")
+
+
+
+def copy_static_files():
+    static_src = "static"
+    static_dst = os.path.join(OUTPUT_DIR, "static")
+    for filename in os.listdir(static_src):
+        src_path = os.path.join(static_src, filename)
+        dest_path = os.path.join(static_dst, filename)
+        if os.path.isdir(src_path):
+            shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            shutil.copy2(src_path, dest_path)
+
+def clean_unused_posters(all_items):
+    used_posters = {
+        item.get("poster_path", "").replace("\\", "/")
+        for item in all_items
+        if item.get("poster_path")
+    }
+    if os.path.isdir(POSTER_DIR):
+        for fname in os.listdir(POSTER_DIR):
+            rel_path = f"posters/{fname}"
+            if rel_path not in used_posters:
+                try:
+                    os.remove(os.path.join(POSTER_DIR, fname))
+                except Exception:
+                    continue
