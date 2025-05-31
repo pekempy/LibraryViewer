@@ -12,6 +12,10 @@ POSTER_DIR = os.path.join(OUTPUT_DIR, "posters")
 def log(msg):
     print(f"[{time.strftime('%H:%M:%S')}] {msg}")
 
+def load_library_mapping(path):
+    with open(path, 'r') as f:
+        return json.load(f)
+
 def get_dedupe_key(item):
     return item.get("file_path", "").replace("\\", "/").lower()
 

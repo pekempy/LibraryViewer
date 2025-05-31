@@ -4,9 +4,16 @@ from dotenv import load_dotenv
 from jinja2 import Environment, FileSystemLoader
 from utils.jellyfin_library import fetch_jellyfin_items
 from utils.plex_library import fetch_plex_items
-from utils.utils import log, merge_items, optimise_posters, clean_unused_posters, copy_static_files
+from utils.utils import (
+    log,
+    merge_items,
+    optimise_posters,
+    clean_unused_posters,
+    copy_static_files,
+    load_library_mapping
+)
 
-CONFIG_DIR = "/config" if os.path.exists("/config/.env") else "."
+CONFIG_DIR = "/config" if os.path.exists("/config/libraries.json") else os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(CONFIG_DIR, "output")
 
 def load_config():
@@ -21,8 +28,6 @@ def load_config():
         "plex": {
             "url": os.getenv("PLEX_URL"),
             "token": os.getenv("PLEX_TOKEN"),
-            "movie_library_name": os.getenv("PLEX_MOVIE_LIBRARY", "movies").lower(),
-            "show_library_name": os.getenv("PLEX_TV_LIBRARY", "tv shows").lower(),
         }
     }
 
@@ -31,24 +36,17 @@ def render_site(all_items, config):
     env = Environment(loader=FileSystemLoader("templates"))
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    movies = [i for i in all_items if i["type"].lower() == "movie"]
-    shows = [i for i in all_items if i["type"].lower() in ["show", "series"]]
     genres = sorted(set(g for item in all_items for g in item.get("genres", [])))
     years = sorted(set(i["year"] for i in all_items if i.get("year")), reverse=True)
 
-    log(f"🎬 Total movies passed to template: {len(movies)}")
-    log(f"📺 Total shows passed to template: {len(shows)}")
-    log("Rendering HTML...")
+    tabs = sorted(set(i["library"] for i in all_items))
 
     template = env.get_template("library.html")
     html = template.render(
-        movies=movies,
-        shows=shows,
+        items_by_library={lib: [i for i in all_items if i["library"] == lib] for lib in tabs},
         genres=genres,
         years=years,
         server_name=config["server_name"],
-        movie_count=len(movies),
-        show_count=len(shows),
         item_details=json.dumps({i["key"]: i for i in all_items})
     )
 
@@ -59,19 +57,30 @@ def render_site(all_items, config):
 
 def main():
     config = load_config()
+    library_mapping = load_library_mapping(os.path.join(CONFIG_DIR, "libraries.json"))
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     jellyfin_enabled = os.getenv("JELLYFIN_ENABLED", "false").lower() == "true"
     plex_enabled = os.getenv("PLEX_ENABLED", "false").lower() == "true"
 
-    jellyfin_items = fetch_jellyfin_items(config) if jellyfin_enabled else []
-    plex_items = fetch_plex_items(config) if plex_enabled else []
+    jellyfin_items = []
+    plex_items = []
+
+    for lib in library_mapping:
+        name = lib["name"]
+
+        if plex_enabled and "plex" in lib:
+            plex = lib["plex"]
+            plex_items += fetch_plex_items(config, plex["name"], plex["library_type"], name)
+
+        if jellyfin_enabled and "jellyfin" in lib:
+            jf = lib["jellyfin"]
+            jellyfin_items += fetch_jellyfin_items(config, jf["name"], jf["library_type"], name)
 
     log(f"[JF] Fetched {len(jellyfin_items)} items")
     log(f"[Plex] Fetched {len(plex_items)} items")
     log("Merging Jellyfin & Plex libraries...")
 
-    # Ensure all items are dicts
     all_items = merge_items(
         [i.to_dict() if hasattr(i, "to_dict") else i for i in jellyfin_items],
         [i.to_dict() if hasattr(i, "to_dict") else i for i in plex_items]

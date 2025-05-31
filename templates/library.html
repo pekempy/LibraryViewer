@@ -1,13 +1,12 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %}
+{% block content %}
+
 <h2>{{ server_name }}</h2>
 
 <div class="tabs">
-  <button class="tab-button active" data-tab="movies">
-    Movies<br /><span class="count" id="movie-count">0 titles</span>
-  </button>
-  <button class="tab-button" data-tab="shows">
-    TV Shows<br /><span class="count" id="show-count">0 series</span>
-  </button>
+  {% for lib in items_by_library %}
+  <button class="tab-button {% if loop.first %}active{% endif %}" data-tab="{{ lib|lower }}">{{ lib }}</button>
+  {% endfor %}
 </div>
 
 <div class="controls">
@@ -15,75 +14,69 @@
     Search:
     <input id="search" class="md-input" type="text" placeholder="Search..." />
   </label>
-  <div style="width: 100%"> </div>
-    <label>
-      Sort by:
-      <select id="sort">
-        <option value="title">Title (A-Z)</option>
-        <option value="title-desc">Title (Z-A)</option>
-        <option value="year">Year (Newest)</option>
-        <option value="year-asc">Year (Oldest)</option>
-        <option value="size">Size (Largest)</option>
-        <option value="size-asc">Size (Smallest)</option>
-      </select>
-    </label>
-    <label>
-      Genre:
-      <select id="genre">
-        <option value="">All</option>
-      </select>
-    </label>
-    <label>
-      Year:
-      <select id="year">
-        <option value="">All</option>
-      </select>
-    </label>
-    <select id="source">
-      <option value="both">Both</option>
-      <option value="jellyfin">Only Jellyfin</option>
-      <option value="plex">Only Plex</option>
+  <div style="width: 100%"></div>
+  <label>
+    Sort by:
+    <select id="sort">
+      <option value="title">Title (A-Z)</option>
+      <option value="title-desc">Title (Z-A)</option>
+      <option value="year">Year (Newest)</option>
+      <option value="year-asc">Year (Oldest)</option>
+      <option value="size">Size (Largest)</option>
+      <option value="size-asc">Size (Smallest)</option>
     </select>
-    <button id="clear-filters" class="clear-btn">Clear Filters</button>
-  </div>
-  <div class="jump-list">
-    <a href="#jump-movies-#">#</a>
-    {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
-      <a href="#jump-movies-{{ letter }}">{{ letter }}</a>
-    {% endfor %}
-  </div>
+  </label>
+  <label>
+    Genre:
+    <select id="genre">
+      <option value="">All</option>
+    </select>
+  </label>
+  <label>
+    Year:
+    <select id="year">
+      <option value="">All</option>
+    </select>
+  </label>
+  <button id="clear-filters" class="clear-btn">Clear Filters</button>
+</div>
 
+<div class="jump-list">
+  <a href="#jump-{{ lib|lower }}-#">#</a>
+  {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
+    <a href="#jump-{{ lib|lower }}-{{ letter }}">{{ letter }}</a>
+  {% endfor %}
+</div>
 
-  <div id="movies" class="tab-content active">
-    <div class="grid" id="movies-grid"></div>
-  </div>
+{% for lib, items in items_by_library.items() %}
+<div id="{{ lib|lower }}" class="tab-content {% if loop.first %}active{% endif %}">
+  <div class="grid" id="{{ lib|lower }}-grid"></div>
+</div>
+{% endfor %}
 
-  <div id="shows" class="tab-content">
-    <div class="grid" id="shows-grid"></div>
-  </div>
-  <div id="modal" class="modal">
-    <div class="modal-content">
-      <span class="close-button">&times;</span>
-      <div class="modal-body">
-        <img id="modal-poster" src="" alt="Poster" />
-        <div class="modal-details">
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span class="close-button">&times;</span>
+    <div class="modal-body">
+      <img id="modal-poster" src="" alt="Poster" />
+      <div class="modal-details">
         <h2 id="modal-title" class="modal-title"></h2>
-          <div id="modal-meta" class="modal-meta">
-            <div id="modal-year" class="meta-item"><span class="material-icons">calendar_today</span> <span class="meta-text"></span></div>
-            <div id="modal-runtime" class="meta-item"><span class="material-icons">schedule</span> <span class="meta-text"></span></div>
-            <div id="modal-rating" class="meta-item"><span class="material-icons">star_rate</span> <span class="meta-text"></span></div>
-          </div>
-          <div id="modal-director" class="meta-directors"></div>
-          <div id="modal-description" class="modal-description"></div>
-          <div id="modal-genres" class="modal-genres"></div>
-          <div id="modal-collections" class="modal-collections"></div>
+        <div id="modal-meta" class="modal-meta">
+          <div id="modal-year" class="meta-item"><span class="material-icons">calendar_today</span> <span class="meta-text"></span></div>
+          <div id="modal-runtime" class="meta-item"><span class="material-icons">schedule</span> <span class="meta-text"></span></div>
+          <div id="modal-rating" class="meta-item"><span class="material-icons">star_rate</span> <span class="meta-text"></span></div>
         </div>
+        <div id="modal-director" class="meta-directors"></div>
+        <div id="modal-description" class="modal-description"></div>
+        <div id="modal-genres" class="modal-genres"></div>
+        <div id="modal-collections" class="modal-collections"></div>
       </div>
     </div>
   </div>
-
-  <button id="scrollTopBtn" class="scroll-top-btn" title="Back to Top">
-    <span class="material-icons">arrow_upward</span>
-  </button>
-  {% endblock %}
 </div>
+
+<button id="scrollTopBtn" class="scroll-top-btn" title="Back to Top">
+  <span class="material-icons">arrow_upward</span>
+</button>
+
+{% endblock %}

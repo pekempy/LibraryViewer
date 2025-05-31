@@ -20,12 +20,29 @@ JELLYFIN_USER_ID=your_jellyfin_user_id
 
 PLEX_URL=http://your-plex-host:32400
 PLEX_TOKEN=your_plex_token
-PLEX_MOVIE_LIBRARY=Films
-PLEX_TV_LIBRARY=TV shows
 
 JELLYFIN_ENABLED=true
 PLEX_ENABLED=true
 ```
+
+Also populate `libraries.json` with your library mappings
+```json
+ {
+      "name":"Movies",
+      "plex":{
+         "name":"Films",
+         "library_type":"Movies" 
+      },
+      "jellyfin":{
+         "name":"Movies",
+         "library_type":"Movies"
+      }
+   },
+```
+`name` in the parent object is the name of your tab within Library viewers web ui. You can customise this however you wish
+A `plex` and `jellyfin` object will instruct the code to map these two libraries together when attempting to merge data. This should prevent cross-library merging, but allow for cross-server merging.
+The `library_type` field in the json should be either `Movies` or `TV` as this tells the script how to handle fetching the data, if it's episodic it should hopefully work with TV. If it's structured like movies, then use Movies.
+
 
 # ⚙️ Manual Usage (Python)
 
