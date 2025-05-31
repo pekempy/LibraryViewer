@@ -39,7 +39,10 @@ Open output/index.html in your browser to view it.
 
 `docker build -t static-library-viewer .`
 
-⏱ This builds the base image. No media is fetched during this step.
+This builds the base image. No media is fetched during this step.    
+
+You can also fetch the latest release with    
+`docker pull ghcr.io/pekempy/libraryviewer:latest`
 
 ## 🚀 Run the Container
 
