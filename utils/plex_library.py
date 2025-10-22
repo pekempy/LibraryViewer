@@ -22,7 +22,7 @@ def should_download_poster(key, updated_at):
     path = f"output/posters/library_metadata_{key}.jpg"
     return not os.path.exists(path) or os.path.getmtime(path) < updated_at
 
-def download_poster(base_url, key, token):
+def download_poster(base_url, key, title, token):
     poster_url = f"{base_url}/library/metadata/{key}/thumb?X-Plex-Token={token}"
     poster_path = f"output/posters/library_metadata_{key}.jpg"
     os.makedirs("output/posters", exist_ok=True)
@@ -33,9 +33,9 @@ def download_poster(base_url, key, token):
                 for chunk in response.iter_content(8192):
                     f.write(chunk)
         else:
-            log(f"[Plex] ⚠️ Poster download failed for {key} (status {response.status_code})")
+            log(f"[Plex] ⚠️ Poster download failed for {title} (status {response.status_code})")
     except Exception as e:
-        log(f"[Plex] ❌ Failed to download poster for {key}: {e}")
+        log(f"[Plex] ❌ Failed to download poster for {title}: {e}")
 
 def fetch_plex_items(config, library_name, library_type, display_name):
     base_url = config["plex"]["url"].rstrip("/")
@@ -91,7 +91,7 @@ def fetch_plex_movies(base_url, token, headers, section_key, library):
 
         updated_at = int(item.get("updatedAt", 0))
         if should_download_poster(item["ratingKey"], updated_at):
-            download_poster(base_url, item["ratingKey"], token)
+            download_poster(base_url, item["ratingKey"], item.get("title", "Unknown"), token)
 
     return result
 
@@ -156,6 +156,6 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
 
         updated_at = int(show.get("updatedAt", 0))
         if should_download_poster(show["ratingKey"], updated_at):
-            download_poster(base_url, show["ratingKey"], token)
+            download_poster(base_url, show["ratingKey"], show.get("title", "Unknown"), token)
 
     return result
