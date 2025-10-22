@@ -3,6 +3,15 @@ import requests
 from utils.media_item import MediaItem
 from utils.utils import extract_folder_and_filename, log
 
+def safe_json(resp):
+    try:
+        return resp.json()
+    except Exception:
+        log(f"[Plex] ⚠️ Failed to decode JSON from {resp.url}")
+        log(f"[Plex] Status: {resp.status_code}")
+        log(f"[Plex] Response text: {resp.text[:300]!r}")
+        return {}
+
 def get_plex_headers(token):
     return {
         "Accept": "application/json",
@@ -23,8 +32,10 @@ def download_poster(base_url, key, token):
             with open(poster_path, "wb") as f:
                 for chunk in response.iter_content(8192):
                     f.write(chunk)
+        else:
+            log(f"[Plex] ⚠️ Poster download failed for {key} (status {response.status_code})")
     except Exception as e:
-        print(f"❌ Failed to download poster for {key}: {e}")
+        log(f"[Plex] ❌ Failed to download poster for {key}: {e}")
 
 def fetch_plex_items(config, library_name, library_type, display_name):
     base_url = config["plex"]["url"].rstrip("/")
@@ -33,8 +44,9 @@ def fetch_plex_items(config, library_name, library_type, display_name):
 
     sections_url = f"{base_url}/library/sections"
     resp = requests.get(sections_url, headers=headers)
-    sections = resp.json().get("MediaContainer", {}).get("Directory", [])
+    sections = safe_json(resp).get("MediaContainer", {}).get("Directory", [])
     section_key = next((s["key"] for s in sections if s["title"].lower() == library_name.lower()), None)
+
     if not section_key:
         log(f"[Plex] ❌ Could not find section for: {library_name}")
         return []
@@ -52,7 +64,7 @@ def fetch_plex_movies(base_url, token, headers, section_key, library):
     movie_url = f"{base_url}/library/sections/{section_key}/all"
     movie_params = {"type": "1", "includeGuids": "1"}
     movie_resp = requests.get(movie_url, headers=headers, params=movie_params)
-    movie_items = movie_resp.json().get("MediaContainer", {}).get("Metadata", [])
+    movie_items = safe_json(movie_resp).get("MediaContainer", {}).get("Metadata", [])
 
     result = []
     for item in movie_items:
@@ -66,8 +78,12 @@ def fetch_plex_movies(base_url, token, headers, section_key, library):
         collections = [c["tag"] for c in item.get("Collection", [])]
         genres = [g["tag"] for g in item.get("Genre", [])]
 
-        media_item = MediaItem.from_plex(item, base_url, size, directors, media, collections=collections, genres=genres, plex_token=token)
+        media_item = MediaItem.from_plex(
+            item, base_url, size, directors, media,
+            collections=collections, genres=genres, plex_token=token
+        )
         media_item.library = library
+
         if part_file:
             media_item.file_path = extract_folder_and_filename(part_file)
         media_item.plex_collections = collections
@@ -84,7 +100,7 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
     show_url = f"{base_url}/library/sections/{section_key}/all"
     show_params = {"type": "2", "includeGuids": "1"}
     show_resp = requests.get(show_url, headers=headers, params=show_params)
-    show_items = show_resp.json().get("MediaContainer", {}).get("Metadata", [])
+    show_items = safe_json(show_resp).get("MediaContainer", {}).get("Metadata", [])
 
     result = []
     for show in show_items:
@@ -94,14 +110,14 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
 
         first_path, total_size, all_episodes = None, 0, []
         seasons_resp = requests.get(f"{base_url}/library/metadata/{show_id}/children", headers=headers)
-        seasons = seasons_resp.json().get("MediaContainer", {}).get("Metadata", [])
+        seasons = safe_json(seasons_resp).get("MediaContainer", {}).get("Metadata", [])
         if not seasons:
             continue
 
         for season in seasons:
             season_id = season["ratingKey"]
             episodes_resp = requests.get(f"{base_url}/library/metadata/{season_id}/children", headers=headers)
-            episodes = episodes_resp.json().get("MediaContainer", {}).get("Metadata", [])
+            episodes = safe_json(episodes_resp).get("MediaContainer", {}).get("Metadata", [])
             all_episodes.extend(episodes)
 
         all_episodes.sort(key=lambda ep: (ep.get("parentIndex", 0), ep.get("index", 0)))
@@ -114,7 +130,7 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
                     first_path = part["file"]
 
         detail_resp = requests.get(f"{base_url}/library/metadata/{show_id}", headers=headers)
-        metadata_list = detail_resp.json().get("MediaContainer", {}).get("Metadata", [])
+        metadata_list = safe_json(detail_resp).get("MediaContainer", {}).get("Metadata", [])
         detailed_show = metadata_list[0] if len(metadata_list) == 1 else next(
             (item for item in metadata_list if str(item.get("ratingKey")) == str(show_id)), None
         )
@@ -125,8 +141,12 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
         collections = [c["tag"] for c in detailed_show.get("Collection", [])]
         genres = [g["tag"] for g in detailed_show.get("Genre", [])]
 
-        media_item = MediaItem.from_plex(show, base_url, total_size, directors, [], collections=collections, genres=genres, plex_token=token)
+        media_item = MediaItem.from_plex(
+            show, base_url, total_size, directors, [],
+            collections=collections, genres=genres, plex_token=token
+        )
         media_item.library = library
+
         if first_path:
             media_item.file_path = extract_folder_and_filename(first_path, depth=2)
 
