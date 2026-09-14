@@ -5,7 +5,9 @@ from utils.media_item import MediaItem
 from utils.utils import extract_folder_and_filename, log
 
 JELLYFIN_HEADERS = lambda token: {
-    "X-Emby-Token": token,
+    # Jellyfin 12.0.0 dropped the old X-Emby-Token header for this
+    # Authorization scheme - every request 401'd after the server upgraded.
+    "Authorization": f'MediaBrowser Token="{token}"',
     "Content-Type": "application/json"
 }
 
