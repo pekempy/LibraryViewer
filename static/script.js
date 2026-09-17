@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", async () => {
-    let activeTab = "Movies";
     // ─────────────────────────────
     // 🔧 DOM Elements
     // ─────────────────────────────
@@ -35,7 +34,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     }));
 
     const availableLibraries = [...new Set(data.map(item => item.library))];
-    let activeLibrary = availableLibraries[0];
+    // Always the lowercase slug (matches gridMap keys, tab data-tab
+    // attributes, and jump-list anchor ids) - never the display-cased
+    // library name.
+    let activeLibrary = availableLibraries[0]?.toLowerCase();
 
     const gridMap = {};
     availableLibraries.forEach(lib => {
@@ -52,7 +54,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     let currentIndex = 0;
     let filteredCards = [];
     let allCards = [];
-    let activeType = "Movie";
     let activeCollectionFilter = null;
 
     // ─────────────────────────────
@@ -207,10 +208,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (e.target === modal) modal.classList.remove("show");
     });
 
-    const seenLetters = {
-        movies: new Set(),
-        shows: new Set()
-    };
+    // Jump-list letter buckets, one per library (not per movie/show type -
+    // this used to be a hardcoded {movies, shows} pair, which only worked
+    // when every library was literally named "Movies" or "Shows". A
+    // library named anything else (e.g. "TV Shows", "Theatre") fell
+    // through every type check in render() and rendered as empty.
+    const seenLetters = {};
 
     function createCard(item) {
         const card = document.createElement("div");
@@ -254,17 +257,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 "");
 
         let anchor = "";
-        const typeKey = item.type === "movie" ? "movies" : "shows";
+        const librarySlug = item.library.toLowerCase();
+        seenLetters[librarySlug] = seenLetters[librarySlug] || new Set();
         const isFirstCard =
-            allCards.filter((c) => c.classList.contains(typeKey.slice(0, -1)))
+            allCards.filter((c) => c.dataset.library?.toLowerCase() === librarySlug)
             .length === 0;
 
         if (
-            !seenLetters[typeKey].has(firstChar) ||
+            !seenLetters[librarySlug].has(firstChar) ||
             (firstChar === "#" && isFirstCard)
         ) {
-            seenLetters[typeKey].add(firstChar);
-            anchor = `<a id="jump-${typeKey}-${firstChar}"></a>`;
+            seenLetters[librarySlug].add(firstChar);
+            anchor = `<a id="jump-${librarySlug}-${firstChar}"></a>`;
         }
 
         const isShow = ["show", "series"].includes(item.type);
@@ -341,10 +345,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         filteredCards = allCards.filter((card) => {
-            const isActive =
-                (activeType === "Movie" && card.classList.contains("movie")) ||
-                (activeType === "Series" && card.classList.contains("show") || card.classList.contains("series"));
-            if (!isActive) return false;
+            if (card.dataset.library?.toLowerCase() !== activeLibrary.toLowerCase()) return false;
 
             const title = card.dataset.title.toLowerCase();
             const cardYear = card.dataset.year;
@@ -356,8 +357,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const inCollection = (item?.collectionSlugs || []).includes(activeCollectionFilter);
                 if (!inCollection) return false;
             }
-
-            if (card.dataset.library?.toLowerCase() !== activeLibrary.toLowerCase()) return false;
 
             return (
                 (!genre || cardGenres.includes(genre)) &&
@@ -394,21 +393,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         currentIndex = 0;
 
+        const librarySlug = activeLibrary.toLowerCase();
+
         grid.innerHTML = "";
         document.querySelectorAll(".jump-list a").forEach((link) => {
             const letter = link.textContent.trim().toUpperCase();
-            link.setAttribute(
-                "href",
-                `#jump-${activeType === "Movie" ? "movies" : "shows"}-${letter || "#"}`
-            );
+            link.setAttribute("href", `#jump-${librarySlug}-${letter || "#"}`);
         });
 
-        seenLetters.movies = new Set();
-        seenLetters.shows = new Set();
+        seenLetters[librarySlug] = new Set();
 
         filteredCards.forEach((card) => {
             const title = card.dataset.title;
-            const type = card.classList.contains("movie") ? "movies" : "shows";
 
             const articles = ["a", "an", "the"];
             const words = title.toLowerCase().split(" ");
@@ -416,7 +412,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const char = words[index]?.[0]?.toUpperCase() || "#";
             const firstChar = /^[A-Z]$/.test(char) ? char : "#";
 
-            seenLetters[type].add(firstChar);
+            seenLetters[librarySlug].add(firstChar);
         });
         loadNextBatch();
     }
@@ -463,13 +459,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
     function updateJumpList() {
-        const typeKey = activeType === "Movie" ? "movies" : "shows";
-        const currentSet = seenLetters[typeKey] || new Set();
+        const librarySlug = activeLibrary.toLowerCase();
+        const currentSet = seenLetters[librarySlug] || new Set();
 
         document.querySelectorAll(".jump-list a").forEach((link) => {
             const raw = link
                 .getAttribute("href")
-                .replace(`#jump-${typeKey}-`, "")
+                .replace(`#jump-${librarySlug}-`, "")
                 .toUpperCase();
             const letter = raw === "" ? "#" : raw;
 
@@ -527,8 +523,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             btn.classList.add("active");
 
             const rawTab = btn.dataset.tab;
-            activeLibrary = rawTab[0].toUpperCase() + rawTab.slice(1); // Capitalized
-            activeType = activeLibrary === "Shows" ? "Series" : "Movie";
+            // rawTab is already the lowercase slug used everywhere else
+            // (grid ids, jump-list anchors, dataset.library comparisons) -
+            // no need to reconstruct a display-cased name nobody reads.
+            activeLibrary = rawTab;
 
             document.querySelectorAll(".tab-content").forEach((tab) => tab.classList.remove("active"));
 
@@ -571,7 +569,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.querySelectorAll(".jump-list a").forEach((link) => {
         link.addEventListener("click", async (e) => {
             e.preventDefault();
-            const targetId = `jump-${activeType === "Movie" ? "movies" : "shows"}-${
+            const targetId = `jump-${activeLibrary.toLowerCase()}-${
         link.textContent.trim().toUpperCase() || "#"
       }`;
             window.scrollTo({

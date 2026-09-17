@@ -51,6 +51,13 @@ def extract_folder_and_filename(full_path, depth = 1):
     return "/".join(parts[-(depth + 1):])
 
 def merge_items(jellyfin_items, plex_items):
+    # Posters are always taken from Jellyfin over Plex when a merged item
+    # has both, regardless of which side happened to reach `combined`
+    # first - explicit here rather than leaning on jellyfin_items being
+    # iterated before plex_items below, which would silently flip poster
+    # source if that iteration order ever changed.
+    POSTER_FIELDS = ("poster_path", "image_url")
+
     def merge_dict(a, b):
         merged = dict(a)
         for key, value in b.items():
@@ -58,6 +65,13 @@ def merge_items(jellyfin_items, plex_items):
                 a_sources = a["source"] if isinstance(a["source"], list) else [a["source"]]
                 b_sources = b["source"] if isinstance(b["source"], list) else [b["source"]]
                 merged["source"] = sorted(set(a_sources + b_sources))
+            elif key in POSTER_FIELDS:
+                b_is_jellyfin = "jellyfin" in (b.get("source") or [])
+                # Jellyfin's value always wins outright; Plex's only fills
+                # in when nothing's set yet (covers a Plex-only item, or
+                # the rare case Jellyfin never got a poster of its own).
+                if value and (b_is_jellyfin or not merged.get(key)):
+                    merged[key] = value
             elif key not in merged or merged[key] in [None, "", [], {}]:
                 merged[key] = value
             elif isinstance(value, list):
