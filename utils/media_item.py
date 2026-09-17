@@ -21,11 +21,24 @@ class MediaItem:
         self.directors = kwargs.get("directors", [])
         self.community_rating = kwargs.get("community_rating")
         self.official_rating = kwargs.get("official_rating")
-        self.runtime_ticks = kwargs.get("runtime_ticks")
+        # Jellyfin reports RunTimeTicks (.NET ticks, 100ns units - 600M per
+        # minute) while Plex reports duration in plain milliseconds (60K per
+        # minute). Storing both under one ambiguous "runtime_ticks" name
+        # made every Plex-only item's runtime silently round down to 0
+        # minutes wherever it got divided by the Jellyfin-scale constant.
+        # Normalising to minutes here removes the ambiguity at the source
+        # instead of asking every consumer to know which unit a given item
+        # came in as.
+        self.runtime_minutes = kwargs.get("runtime_minutes")
         self.season_count = kwargs.get("season_count")
         self.episode_count = kwargs.get("episode_count")
         self.jellyfin_collections = kwargs.get("collections", [])
         self.plex_collections = kwargs.get("plex_collections", [])
+        # {"tmdb": "...", "imdb": "...", "tvdb": "..."} where known - the
+        # primary cross-server merge signal (see utils.get_dedupe_key).
+        # File-path matching alone breaks the instant Plex and Jellyfin
+        # disagree on folder naming for the same physical file.
+        self.provider_ids = kwargs.get("provider_ids", {})
 
     def to_dict(self):
         return self.__dict__
@@ -59,10 +72,18 @@ class MediaItem:
         return os.path.basename(full_path)
 
     @classmethod
-    def from_jellyfin(cls, item, image_url, size, season_count, episode_count, directors, media, collections=None, genres=None, library=None):        
+    def from_jellyfin(cls, item, image_url, size, season_count, episode_count, directors, media, collections=None, genres=None, library=None):
         file_path = media[0].get("Path", "") if media else ""
         file_size_bytes = media[0].get("Size", 0) if media else 0
         relative_path = cls.find_relevant_path(file_path, item.get("Name", ""))
+
+        provider_ids = {
+            k.lower(): v for k, v in (item.get("ProviderIds") or {}).items()
+            if k.lower() in ("tmdb", "imdb", "tvdb") and v
+        }
+
+        run_time_ticks = item.get("RunTimeTicks")
+        runtime_minutes = round(run_time_ticks / 600_000_000) if run_time_ticks else None
 
         return cls(
             source="jellyfin",
@@ -82,10 +103,11 @@ class MediaItem:
             directors=directors,
             community_rating=item.get("CommunityRating"),
             official_rating=item.get("OfficialRating"),
-            runtime_ticks=item.get("RunTimeTicks"),
+            runtime_minutes=runtime_minutes,
             season_count=season_count,
             episode_count=episode_count,
             jellyfin_collections=collections or [],
+            provider_ids=provider_ids,
         )
 
 
@@ -101,6 +123,19 @@ class MediaItem:
         token_param = f"?X-Plex-Token={plex_token}" if plex_token else ""
         image_url = f"{thumb}{token_param}" if thumb else ""
         poster_path = f"posters/{poster_filename}.jpg"
+
+        # Plex's Guid entries look like {"id": "tmdb://1704"} - only present
+        # when the request passed includeGuids=1.
+        provider_ids = {}
+        for guid in item.get("Guid", []):
+            guid_id = guid.get("id", "")
+            if "://" in guid_id:
+                provider, value = guid_id.split("://", 1)
+                if provider in ("tmdb", "imdb", "tvdb") and value:
+                    provider_ids[provider] = value
+
+        duration_ms = media[0].get("duration") if media else None
+        runtime_minutes = round(duration_ms / 60_000) if duration_ms else None
 
         return cls(
             source="plex",
@@ -121,8 +156,9 @@ class MediaItem:
             directors=directors,
             community_rating=item.get("rating"),
             official_rating=item.get("contentRating"),
-            runtime_ticks=media[0].get("duration") if media else None,
+            runtime_minutes=runtime_minutes,
             season_count=item.get("childCount") if item.get("type") == "show" else None,
             episode_count=item.get("leafCount") if item.get("type") == "show" else None,
             plex_collections=collections or [],
+            provider_ids=provider_ids,
         )

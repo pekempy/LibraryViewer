@@ -2,7 +2,7 @@ import os
 import requests
 import shutil
 from utils.media_item import MediaItem
-from utils.utils import extract_folder_and_filename, log
+from utils.utils import extract_folder_and_filename, log, POSTER_DIR
 
 JELLYFIN_HEADERS = lambda token: {
     # Jellyfin 12.0.0 dropped the old X-Emby-Token header for this
@@ -10,8 +10,6 @@ JELLYFIN_HEADERS = lambda token: {
     "Authorization": f'MediaBrowser Token="{token}"',
     "Content-Type": "application/json"
 }
-
-POSTER_DIR = "output/posters"
 
 def safe_json(resp):
     try:
@@ -31,6 +29,9 @@ def download_poster(base_url, key, tag, token):
     os.makedirs(POSTER_DIR, exist_ok=True)
     try:
         with requests.get(url, stream=True, timeout=10) as r:
+            if r.status_code != 200:
+                log(f"[JF] ⚠️ Poster download failed for {key} (status {r.status_code})")
+                return
             with open(os.path.join(POSTER_DIR, f"{key}.jpg"), "wb") as f:
                 shutil.copyfileobj(r.raw, f)
     except Exception as e:
@@ -40,10 +41,10 @@ def fetch_movies(base_url, token, user_id, headers, library_id):
     params = {
         "Recursive": "true",
         "IncludeItemTypes": "Movie",
-        "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems",
+        "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems,ProviderIds",
         "ParentId": library_id
     }
-    resp = requests.get(f"{base_url}/Users/{user_id}/Items", headers=headers, params=params)
+    resp = requests.get(f"{base_url}/Users/{user_id}/Items", headers=headers, params=params, timeout=15)
     return safe_json(resp).get("Items", [])
 
 def fetch_boxset_movies(base_url, token, user_id, headers):
@@ -52,7 +53,7 @@ def fetch_boxset_movies(base_url, token, user_id, headers):
         requests.get(f"{base_url}/Users/{user_id}/Items", headers=headers, params={
             "IncludeItemTypes": "BoxSet",
             "Recursive": "true"
-        })
+        }, timeout=15)
     ).get("Items", [])
 
     for box in boxsets:
@@ -62,8 +63,8 @@ def fetch_boxset_movies(base_url, token, user_id, headers):
             "ParentId": box_id,
             "IncludeItemTypes": "Movie",
             "Recursive": "true",
-            "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems"
-        })
+            "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems,ProviderIds"
+        }, timeout=15)
         for item in safe_json(resp).get("Items", []):
             item["_boxset_collection"] = name
             items.append(item)
@@ -73,10 +74,10 @@ def fetch_shows(base_url, token, user_id, headers, library_id):
     params = {
         "Recursive": "true",
         "IncludeItemTypes": "Series",
-        "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems",
+        "Fields": "MediaSources,Genres,Overview,CommunityRating,OfficialRating,RunTimeTicks,ImageTags,CollectionItems,ProviderIds",
         "ParentId": library_id
     }
-    resp = requests.get(f"{base_url}/Users/{user_id}/Items", headers=headers, params=params)
+    resp = requests.get(f"{base_url}/Users/{user_id}/Items", headers=headers, params=params, timeout=15)
     return safe_json(resp).get("Items", [])
 
 def parse_item(item, library_type, base_url, token, headers, display_name):
@@ -96,9 +97,16 @@ def parse_item(item, library_type, base_url, token, headers, display_name):
             requests.get(
                 f"{base_url}/Shows/{item_id}/Episodes",
                 headers=headers,
-                params={"Fields": "MediaSources,ParentIndexNumber", "Recursive": "true", "Limit": 9999}
-            )
+                params={"Fields": "MediaSources,ParentIndexNumber,IndexNumber", "Recursive": "true", "Limit": 9999}
+            , timeout=15)
         ).get("Items", [])
+        # Plex explicitly sorts episodes by (season, episode) before picking
+        # the first one's file path as the TV merge key (see plex_library.
+        # fetch_plex_shows) - without the same sort here, the API's own
+        # return order can pick a *different* episode as "first" on each
+        # side, which fails the merge on the season/episode segment of the
+        # extracted relative path even though the show is really the same.
+        episodes.sort(key=lambda ep: (ep.get("ParentIndexNumber", 0) or 0, ep.get("IndexNumber", 0) or 0))
 
         season_numbers = set()
         size = 0
@@ -116,7 +124,7 @@ def parse_item(item, library_type, base_url, token, headers, display_name):
         path = used_media[0].get("Path") if used_media else path
 
     directors = []
-    cred_resp = requests.get(f"{base_url}/Items/{item_id}/Credits", headers=headers)
+    cred_resp = requests.get(f"{base_url}/Items/{item_id}/Credits", headers=headers, timeout=15)
     if cred_resp.status_code == 200:
         credits = safe_json(cred_resp)
         if isinstance(credits, list):
@@ -150,7 +158,7 @@ def fetch_jellyfin_items(config, library_name, library_type, display_name):
 
     log(f"[JF] Fetching {library_type} from {display_name}...")
 
-    libs = safe_json(requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers)).get("Items", [])
+    libs = safe_json(requests.get(f"{base_url}/Users/{user_id}/Views", headers=headers, timeout=15)).get("Items", [])
     lib_id = next((lib["Id"] for lib in libs if lib["Name"].lower() == library_name.lower()), None)
 
     if not lib_id:

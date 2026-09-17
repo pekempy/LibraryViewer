@@ -66,20 +66,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             .replace(/[^\w-]/g, "");
     }
 
-    function getContrastTextColor(hsl) {
-        const [h, s, l] = hsl.match(/\d+/g).map(Number);
-        return l > 60 ? "#000" : "#fff";
-    }
-
     function generateColorMap(genres) {
+        // Muted, deterministic per-genre hue - distinct enough to tell
+        // genres apart at a glance without turning the grid into a rainbow.
+        // Same low saturation/lightness for every genre keeps them reading
+        // as one coherent badge system rather than each fighting for
+        // attention.
         const sortedGenres = [...genres].map(getGenreSlug).sort();
         const colorMap = {};
         const step = 360 / sortedGenres.length;
 
         sortedGenres.forEach((slug, i) => {
             const hue = Math.round(step * i);
-            const color = `hsl(${hue}, 65%, 55%)`;
-            colorMap[slug] = color;
+            colorMap[slug] = hue;
         });
 
         return colorMap;
@@ -90,13 +89,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.head.appendChild(style);
         const sheet = style.sheet;
 
-        for (const [slug, color] of Object.entries(colorMap)) {
-            const textColor = getContrastTextColor(color);
-            const hsla = color.replace("hsl", "hsla").replace(")", ", 0.3)");
+        for (const [slug, hue] of Object.entries(colorMap)) {
             const rule = `.genre-${slug} {
-        background-color: ${hsla};
-        outline: 1px solid ${color};
-        color: ${textColor};
+        background-color: hsla(${hue}, 38%, 42%, 0.22);
+        border-color: hsla(${hue}, 45%, 65%, 0.4);
+        color: hsl(${hue}, 55%, 78%);
       }`;
             try {
                 sheet.insertRule(rule, sheet.cssRules.length);
@@ -150,9 +147,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             `Director(s): ${details.directors}` :
             "";
         ratingEl.querySelector(".meta-text").textContent = details.rating || "—";
-        const runtimeMinutes = details.runtime ?
-            Math.round(parseInt(details.runtime) / 600000000) :
-            null;
+        const runtimeMinutes = details.runtime ? parseInt(details.runtime) : null;
         runtimeEl.querySelector(".meta-text").textContent = runtimeMinutes ?
             `${runtimeMinutes} min` :
             "—";
@@ -185,12 +180,14 @@ document.addEventListener("DOMContentLoaded", async () => {
             .join("");
         document.getElementById("modal-genres").innerHTML = genres;
 
-        const collections = (item?.collections || [])
-            .map(
-                (c) =>
-                `<button class="collection-btn" data-collection-id="${c.id}">${c.name}</button>`
-            )
-            .join("");
+        const collections = [
+            ...(item?.plex_collections || []).map(
+                (c) => `<button class="collection-btn plex" data-collection-id="plex-${getGenreSlug(c)}">${c}</button>`
+            ),
+            ...(item?.jellyfin_collections || []).map(
+                (c) => `<button class="collection-btn jellyfin" data-collection-id="jellyfin-${getGenreSlug(c)}">${c}</button>`
+            ),
+        ].join("");
         const collectionsEl = document.getElementById("modal-collections");
 
         collectionsEl.innerHTML = collections;
@@ -231,7 +228,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         card.dataset.genres = item.genres.join(",");
         card.dataset.directors = item.directors.join(", ");
         card.dataset.rating = item.official_rating || item.community_rating;
-        card.dataset.runtime = item.runtime_ticks;
+        card.dataset.runtime = item.runtime_minutes;
         card.dataset.description = item.overview || "";
         card.dataset.source = item.source;
         card.dataset.season_count = item.season_count || 0;
@@ -253,7 +250,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             )
             .join("") +
             (extraGenres ?
-                `<span class="badge" style="background-color: #6a6a6a; color: #fff;">...</span>` :
+                `<span class="badge badge-more">+${item.genres.length - 4}</span>` :
                 "");
 
         let anchor = "";
@@ -270,45 +267,43 @@ document.addEventListener("DOMContentLoaded", async () => {
             anchor = `<a id="jump-${typeKey}-${firstChar}"></a>`;
         }
 
+        const isShow = ["show", "series"].includes(item.type);
+
         card.innerHTML = `
       ${anchor}
-      <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
-      <h3>${item.title}</h3>
-      <div class="card-meta">
-        <div class="meta-item"><span class="material-icons">calendar_today</span> <span class="meta-text">${
-          item.year || "—"
-        }</span></div>
-        <div class="meta-item"><span class="material-icons">sd_storage</span> <span class="meta-text">${(
-          item.size /
-          (1024 * 1024 * 1024)
-        ).toFixed(2)} GB</span></div>
-        ${item.type in ["show", "series"]
-          ? `<div class="meta-item"><span class="material-icons">view_list</span> <span class="meta-text">${
-              item.season_count || 0
-            } seasons • ${item.episode_count || 0} episodes</span></div>`
-          : ""
-        }
+      <div class="card-poster">
+        <img src="${item.poster_path}" alt="${item.title}" loading="lazy" />
+        <span class="source-dots" aria-hidden="true">
+          ${(item.source || []).map((s) => `<span class="source-dot ${s}" title="${s === "plex" ? "Plex" : "Jellyfin"}"></span>`).join("")}
+        </span>
       </div>
-      <p style="margin-top: 0.5em; display: flex; flex-wrap: wrap; gap: 0.3em; justify-content: space-evenly;">
-        ${genreBadges}
-      </p>
-      <div class="collection-buttons">
-        ${(item.plex_collections || [])
-          .map(
-            (c) =>
-              `<button class="collection-btn plex" data-collection-id="plex-${getGenreSlug(
-                c
-              )}" style="background-color: orange; color: black;">${c}</button>`
-          )
-          .join("")}
-        ${(item.jellyfin_collections || [])
-          .map(
-            (c) =>
-              `<button class="collection-btn jellyfin" data-collection-id="jellyfin-${getGenreSlug(
-                c
-              )}" style="background-color: purple;">${c}</button>`
-          )
-          .join("")}
+      <div class="card-body">
+        <h3>${item.title}</h3>
+        <div class="card-meta">
+          <span class="meta-item">${item.year || "—"}</span>
+          <span class="meta-item">${(item.size / (1024 * 1024 * 1024)).toFixed(2)} GB</span>
+          ${isShow
+            ? `<span class="meta-item">${item.season_count || 0} season${item.season_count === 1 ? "" : "s"} · ${item.episode_count || 0} ep</span>`
+            : ""
+          }
+        </div>
+        <div class="card-genres">
+          ${genreBadges}
+        </div>
+        <div class="collection-buttons">
+          ${(item.plex_collections || [])
+            .map(
+              (c) =>
+                `<button class="collection-btn plex" data-collection-id="plex-${getGenreSlug(c)}">${c}</button>`
+            )
+            .join("")}
+          ${(item.jellyfin_collections || [])
+            .map(
+              (c) =>
+                `<button class="collection-btn jellyfin" data-collection-id="jellyfin-${getGenreSlug(c)}">${c}</button>`
+            )
+            .join("")}
+        </div>
       </div>
     `;
 

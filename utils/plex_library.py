@@ -1,7 +1,7 @@
 import os
 import requests
 from utils.media_item import MediaItem
-from utils.utils import extract_folder_and_filename, log
+from utils.utils import extract_folder_and_filename, log, POSTER_DIR
 
 def safe_json(resp):
     try:
@@ -19,13 +19,13 @@ def get_plex_headers(token):
     }
 
 def should_download_poster(key, updated_at):
-    path = f"output/posters/library_metadata_{key}.jpg"
+    path = os.path.join(POSTER_DIR, f"library_metadata_{key}.jpg")
     return not os.path.exists(path) or os.path.getmtime(path) < updated_at
 
 def download_poster(base_url, key, title, token):
     poster_url = f"{base_url}/library/metadata/{key}/thumb?X-Plex-Token={token}"
-    poster_path = f"output/posters/library_metadata_{key}.jpg"
-    os.makedirs("output/posters", exist_ok=True)
+    poster_path = os.path.join(POSTER_DIR, f"library_metadata_{key}.jpg")
+    os.makedirs(POSTER_DIR, exist_ok=True)
     try:
         response = requests.get(poster_url, stream=True, timeout=10)
         if response.status_code == 200:
@@ -43,7 +43,7 @@ def fetch_plex_items(config, library_name, library_type, display_name):
     headers = get_plex_headers(token)
 
     sections_url = f"{base_url}/library/sections"
-    resp = requests.get(sections_url, headers=headers)
+    resp = requests.get(sections_url, headers=headers, timeout=15)
     sections = safe_json(resp).get("MediaContainer", {}).get("Directory", [])
     section_key = next((s["key"] for s in sections if s["title"].lower() == library_name.lower()), None)
 
@@ -63,7 +63,7 @@ def fetch_plex_movies(base_url, token, headers, section_key, library):
     log(f"[Plex] Fetching Movies from {library}...")
     movie_url = f"{base_url}/library/sections/{section_key}/all"
     movie_params = {"type": "1", "includeGuids": "1"}
-    movie_resp = requests.get(movie_url, headers=headers, params=movie_params)
+    movie_resp = requests.get(movie_url, headers=headers, params=movie_params, timeout=15)
     movie_items = safe_json(movie_resp).get("MediaContainer", {}).get("Metadata", [])
 
     result = []
@@ -99,7 +99,7 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
     log(f"[Plex] Fetching TV Shows from {library}...")
     show_url = f"{base_url}/library/sections/{section_key}/all"
     show_params = {"type": "2", "includeGuids": "1"}
-    show_resp = requests.get(show_url, headers=headers, params=show_params)
+    show_resp = requests.get(show_url, headers=headers, params=show_params, timeout=15)
     show_items = safe_json(show_resp).get("MediaContainer", {}).get("Metadata", [])
 
     result = []
@@ -109,14 +109,14 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
             continue
 
         first_path, total_size, all_episodes = None, 0, []
-        seasons_resp = requests.get(f"{base_url}/library/metadata/{show_id}/children", headers=headers)
+        seasons_resp = requests.get(f"{base_url}/library/metadata/{show_id}/children", headers=headers, timeout=15)
         seasons = safe_json(seasons_resp).get("MediaContainer", {}).get("Metadata", [])
         if not seasons:
             continue
 
         for season in seasons:
             season_id = season["ratingKey"]
-            episodes_resp = requests.get(f"{base_url}/library/metadata/{season_id}/children", headers=headers)
+            episodes_resp = requests.get(f"{base_url}/library/metadata/{season_id}/children", headers=headers, timeout=15)
             episodes = safe_json(episodes_resp).get("MediaContainer", {}).get("Metadata", [])
             all_episodes.extend(episodes)
 
@@ -129,7 +129,7 @@ def fetch_plex_shows(base_url, token, headers, section_key, library):
                 if not first_path and part.get("file"):
                     first_path = part["file"]
 
-        detail_resp = requests.get(f"{base_url}/library/metadata/{show_id}", headers=headers)
+        detail_resp = requests.get(f"{base_url}/library/metadata/{show_id}", headers=headers, timeout=15)
         metadata_list = safe_json(detail_resp).get("MediaContainer", {}).get("Metadata", [])
         detailed_show = metadata_list[0] if len(metadata_list) == 1 else next(
             (item for item in metadata_list if str(item.get("ratingKey")) == str(show_id)), None

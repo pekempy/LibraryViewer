@@ -17,7 +17,31 @@ def load_library_mapping(path):
         return json.load(f)
 
 def get_dedupe_key(item):
-    return item.get("file_path", "").replace("\\", "/").lower()
+    # Provider id (TMDB/IMDb/TVDB) is the strongest signal available - it
+    # survives Plex and Jellyfin disagreeing about folder naming entirely,
+    # which plain file-path matching can't. Falls back to file path (the
+    # original approach, still solid when both servers see the same files
+    # under the same naming convention), and only as a last resort to
+    # title+year+type.
+    #
+    # That last fallback matters for more than just aesthetics: without it,
+    # any two items that both lack a provider id *and* a usable file path
+    # (a fetch failure, a metadata-only Plex agent, etc.) would collapse
+    # into a single merged entry, silently destroying every item after the
+    # first under the empty-string key.
+    provider_ids = item.get("provider_ids") or {}
+    for provider in ("tmdb", "imdb", "tvdb"):
+        if provider_ids.get(provider):
+            return f"{provider}:{provider_ids[provider]}"
+
+    file_path = (item.get("file_path") or "").replace("\\", "/").strip().lower()
+    if file_path:
+        return f"path:{file_path}"
+
+    title = (item.get("title") or "").strip().lower()
+    year = item.get("year") or ""
+    item_type = (item.get("type") or "").strip().lower()
+    return f"title:{title}|{year}|{item_type}"
 
 def extract_folder_and_filename(full_path, depth = 1):
     full_path = full_path.replace("\\", "/")
@@ -59,12 +83,11 @@ def merge_items(jellyfin_items, plex_items):
 
 
 def optimise_posters():
-    poster_dir = os.path.join("output", "posters")
-    if not os.path.isdir(poster_dir):
+    if not os.path.isdir(POSTER_DIR):
         return
 
-    for fname in os.listdir(poster_dir):
-        path = os.path.join(poster_dir, fname)
+    for fname in os.listdir(POSTER_DIR):
+        path = os.path.join(POSTER_DIR, fname)
         try:
             if os.path.isfile(path) and fname.lower().endswith((".jpg", ".jpeg", ".png")):
                 img = Image.open(path).convert("RGB")
